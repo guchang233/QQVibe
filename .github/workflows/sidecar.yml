@@ -15,9 +15,12 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build-windows:
-    name: build (x86_64-pc-windows-msvc)
+    name: build + verify (x86_64-pc-windows-msvc)
     runs-on: windows-latest
     defaults:
       run:
@@ -27,43 +30,160 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-pc-windows-msvc
+          components: rustfmt
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: sidecar/ntqq-reader
 
-      # ntdb_unwrap's build.rs drives rust-protobuf's code generator, which needs
-      # the protoc binary.
+      # ntdb_unwrap's build.rs drives rust-protobuf's code generator, which shells
+      # out to the `protoc` binary. That binary is not on the runner image, and the
+      # build fails without it. The chocolatey shim is not always on PATH for the
+      # current process yet, so the real executable is located and exported.
       - name: Install protoc
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           choco install protoc --yes --no-progress
-          echo "PROTOC=$(where.exe protoc | Select-Object -First 1)" >> $env:GITHUB_ENV
 
-      - name: Show toolchain
+          $protoc = 'C:\ProgramData\chocolatey\bin\protoc.exe'
+          if (-not (Test-Path $protoc)) {
+            $found = Get-ChildItem 'C:\ProgramData\chocolatey\lib' -Recurse -Filter 'protoc.exe' -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if ($found) { $protoc = $found.FullName }
+          }
+          if (-not (Test-Path $protoc)) { throw 'protoc was not installed by chocolatey' }
+
+          [System.IO.File]::AppendAllText($env:GITHUB_ENV, "PROTOC=$protoc`n")
+          [System.IO.File]::AppendAllText($env:GITHUB_PATH, "$(Split-Path -Parent $protoc)`n")
+          $env:PROTOC = $protoc
+          & $protoc --version
+
+      # openssl-src builds OpenSSL from source; on Windows that needs a Perl.
+      - name: Show build prerequisites
         shell: pwsh
         run: |
           rustc --version
           cargo --version
           protoc --version
+          perl --version 2>&1 | Select-Object -First 2
 
-      - name: Build release
-        run: cargo build --release --target x86_64-pc-windows-msvc
+      - name: Format check
+        run: cargo fmt --all -- --check
 
-      - name: Smoke test (binary runs)
+      # Single-threaded on purpose: the offset VFS is installed into a process-wide
+      # static, so the tests must not race one another registering it.
+      - name: Unit and integration tests
+        run: cargo test --release -- --test-threads=1 --nocapture
+
+      - name: Build release binary
+        run: cargo build --release
+
+      # The fixture is written by the same SQLCipher that will read it, using
+      # ntdb_unwrap's own PRAGMA statements. A fixture produced by a hand-rolled
+      # cipher could be wrong in exactly the ways that matter and still look fine.
+      - name: Generate the encrypted fixture
         shell: pwsh
-        working-directory: sidecar/ntqq-reader
         run: |
-          $exe = "target/x86_64-pc-windows-msvc/release/ntqq-reader.exe"
-          if (-not (Test-Path $exe)) { throw "binary not produced: $exe" }
-          $size = (Get-Item $exe).Length
-          Write-Host "artifact size: $size bytes"
+          $ErrorActionPreference = 'Stop'
+          $fixture = Join-Path $env:RUNNER_TEMP 'ntdb-fixture'
+          $pkey = 'qqvibe-ci-fixture-passphrase'
+          [System.IO.File]::AppendAllText($env:GITHUB_ENV, "QQVIBE_FIXTURE_DIR=$fixture`n")
+          [System.IO.File]::AppendAllText($env:GITHUB_ENV, "QQVIBE_FIXTURE_PKEY=$pkey`n")
+          $env:QQVIBE_FIXTURE_DIR = $fixture
+          $env:QQVIBE_FIXTURE_PKEY = $pkey
+          cargo test --release write_http_fixture_when_requested -- --test-threads=1 --nocapture
+
+          $db = Join-Path $fixture 'nt_msg.db'
+          if (-not (Test-Path $db)) { throw "fixture was not written: $db" }
+          $bytes = (Get-Item $db).Length
+          Write-Host "fixture: $db ($bytes bytes)"
+          $marker = [System.Text.Encoding]::ASCII.GetString(
+            [System.IO.File]::ReadAllBytes($db)[32..39])
+          if ($marker -ne 'QQ_NT DB') { throw "fixture header marker is '$marker', expected 'QQ_NT DB'" }
+          Write-Host 'fixture header marker verified'
+
+      - name: End-to-end check over HTTP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = (Resolve-Path 'target/release/ntqq-reader.exe').Path
+          Write-Host "binary: $exe ($((Get-Item $exe).Length) bytes)"
+
           & $exe --help | Out-String | Write-Host
           if ($LASTEXITCODE -ne 0) { throw "ntqq-reader --help exited with $LASTEXITCODE" }
+
+          $proc = Start-Process -FilePath $exe -PassThru -NoNewWindow -ArgumentList @(
+            '--db-dir', $env:QQVIBE_FIXTURE_DIR,
+            '--pkey',   $env:QQVIBE_FIXTURE_PKEY,
+            '--listen', '127.0.0.1:19552')
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 60 -and -not $health; $i++) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:19552/health' -TimeoutSec 5
+              } catch { }
+            }
+            if (-not $health) { throw 'the sidecar never became ready on 127.0.0.1:19552' }
+            Write-Host "health: $($health | ConvertTo-Json -Compress -Depth 5)"
+            if (-not $health.ok) { throw 'health did not report ok' }
+            if (-not ($health.databases | Where-Object { $_.name -eq 'nt_msg' -and $_.exists })) {
+              throw 'health did not report nt_msg as present'
+            }
+
+            $endpoint = 'http://127.0.0.1:19552/query'
+            function Invoke-Query {
+              param([string]$Sql, [array]$Params = @(), [string]$Db = 'nt_msg')
+              Invoke-RestMethod -Method Post -Uri $endpoint -ContentType 'application/json' `
+                -Body (@{ db = $Db; sql = $Sql; params = $Params } | ConvertTo-Json -Depth 4)
+            }
+
+            $counts = Invoke-Query 'SELECT (SELECT count(*) FROM c2c_msg_table) AS c2c, (SELECT count(*) FROM group_msg_table) AS grp'
+            Write-Host "row counts: $($counts | ConvertTo-Json -Compress)"
+            if ($counts.rows[0][0] -ne 3 -or $counts.rows[0][1] -ne 3) {
+              throw "expected 3 rows in each message table, got $($counts | ConvertTo-Json -Compress)"
+            }
+
+            # The protobuf body must survive the trip as hex. Rather than
+            # hard-coding expected bytes, look for the hex of a known message
+            # string inside the returned body: the text is stored contiguously, so
+            # if it is present the whole encode/decrypt/hex path is intact.
+            $body = Invoke-Query 'SELECT hex("40800") FROM c2c_msg_table ORDER BY "40050" LIMIT 1'
+            $hex = $body.rows[0][0]
+            $needle = -join ([System.Text.Encoding]::UTF8.GetBytes('hello there') |
+              ForEach-Object { $_.ToString('x2') })
+            Write-Host "body hex: $hex (expecting to find $needle)"
+            if ([string]::IsNullOrWhiteSpace($hex)) { throw 'message body came back empty' }
+            if ($hex -notlike "*$needle*") {
+              throw 'the protobuf message body did not survive the round trip'
+            }
+
+            $bound = Invoke-Query 'SELECT "40033" FROM group_msg_table WHERE "40033" = ?' @(888001)
+            Write-Host "parameterised rows: $($bound.rows.Count)"
+            if ($bound.rows.Count -ne 3) { throw "parameterised query returned $($bound.rows.Count) rows" }
+
+            $rejectedWrite = $false
+            try { Invoke-Query 'DELETE FROM group_msg_table' | Out-Null } catch { $rejectedWrite = $true }
+            if (-not $rejectedWrite) { throw 'a write statement was accepted' }
+            Write-Host 'write statement rejected'
+
+            $rejectedDb = $false
+            try { Invoke-Query 'SELECT 1' @() 'settings' | Out-Null } catch { $rejectedDb = $true }
+            if ($rejectedDb) { Write-Host 'absent database rejected' }
+
+            $escaped = $false
+            try { Invoke-Query 'SELECT 1' @() '../../etc/passwd' | Out-Null } catch { $escaped = $true }
+            if (-not $escaped) { throw 'a path outside the allowlist was accepted' }
+            Write-Host 'non-allowlisted database rejected'
+
+            Write-Host 'end-to-end check passed'
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
 
       - uses: actions/upload-artifact@v4
         with:
           name: ntqq-reader-x86_64-pc-windows-msvc
-          path: sidecar/ntqq-reader/target/x86_64-pc-windows-msvc/release/ntqq-reader.exe
+          path: sidecar/ntqq-reader/target/release/ntqq-reader.exe
           if-no-files-found: error

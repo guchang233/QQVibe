@@ -3,21 +3,36 @@ name = "ntqq-reader"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Read-only local HTTP bridge over NTQQ's SQLCipher databases, backed by ntdb_unwrap."
 publish = false
+description = "Read-only HTTP bridge over QQNT's SQLCipher chat databases."
 
 [[bin]]
 name = "ntqq-reader"
 path = "src/main.rs"
 
 [dependencies]
-ntdb_unwrap = "0.3"
+# The approved upstream tool. Provides both halves of the hard part:
+#   * db::register_offset_vfs / db::OFFSET_VFS_NAME - an SQLite VFS that hides
+#     the 1024-byte custom header QQNT prepends to every database;
+#   * db::try_decrypt_db - applies the SQLCipher PRAGMAs (page size 4096,
+#     kdf_iter 4000, aes-256-cbc, PBKDF2_HMAC_SHA512) and auto-detects whether
+#     the database uses HMAC_SHA256 or HMAC_SHA1.
+# Pinned exactly: the API was verified against 0.3.3, and this dependency tree
+# cannot be compiled on the development machine, so an unplanned minor bump
+# would only surface as a CI failure.
+ntdb_unwrap = "=0.3.3"
+
+# Must carry a SQLCipher feature: ntdb_unwrap's try_decrypt_db issues SQLCipher
+# PRAGMAs, which plain SQLite would reject. Feature unification makes both crates
+# share one libsqlite3-sys built from source.
 rusqlite = { version = "0.38", features = ["bundled-sqlcipher-vendored-openssl"] }
+
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tiny_http = "0.12"
+env_logger = "0.11"
 
 [profile.release]
-lto = true
-codegen-units = 1
+lto = "thin"
+codegen-units = 4
 strip = true
