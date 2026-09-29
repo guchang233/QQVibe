@@ -381,13 +381,17 @@ fn authorized(request: &Request, token: &str) -> bool {
         .any(|header| header.field.equiv("Authorization") && header.value.as_str() == expected)
 }
 
-fn handle_query(request: Request, state: &State) {
+fn handle_query(mut request: Request, state: &State) {
     let mut body = String::new();
-    if let Err(err) = request
+    // Bind the read result before branching. An `if let` scrutinee keeps its
+    // temporaries alive for the whole block, so reading straight inside the
+    // condition would hold the mutable borrow of `request` across the
+    // `respond_json(request, ..)` that moves it.
+    let read_result = request
         .as_reader()
         .take(BODY_LIMIT)
-        .read_to_string(&mut body)
-    {
+        .read_to_string(&mut body);
+    if let Err(err) = read_result {
         respond_json(
             request,
             400,
