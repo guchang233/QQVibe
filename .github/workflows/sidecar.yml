@@ -1,0 +1,69 @@
+name: sidecar
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sidecar/**'
+      - '.github/workflows/sidecar.yml'
+  pull_request:
+    paths:
+      - 'sidecar/**'
+      - '.github/workflows/sidecar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: build (x86_64-pc-windows-msvc)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: sidecar/ntqq-reader
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sidecar/ntqq-reader
+
+      # ntdb_unwrap's build.rs drives rust-protobuf's code generator, which needs
+      # the protoc binary.
+      - name: Install protoc
+        shell: pwsh
+        run: |
+          choco install protoc --yes --no-progress
+          echo "PROTOC=$(where.exe protoc | Select-Object -First 1)" >> $env:GITHUB_ENV
+
+      - name: Show toolchain
+        shell: pwsh
+        run: |
+          rustc --version
+          cargo --version
+          protoc --version
+
+      - name: Build release
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Smoke test (binary runs)
+        shell: pwsh
+        working-directory: sidecar/ntqq-reader
+        run: |
+          $exe = "target/x86_64-pc-windows-msvc/release/ntqq-reader.exe"
+          if (-not (Test-Path $exe)) { throw "binary not produced: $exe" }
+          $size = (Get-Item $exe).Length
+          Write-Host "artifact size: $size bytes"
+          & $exe --help | Out-String | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "ntqq-reader --help exited with $LASTEXITCODE" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ntqq-reader-x86_64-pc-windows-msvc
+          path: sidecar/ntqq-reader/target/x86_64-pc-windows-msvc/release/ntqq-reader.exe
+          if-no-files-found: error
