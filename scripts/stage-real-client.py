@@ -28,6 +28,7 @@ BRIDGE = (
     "message_input.py", "portrait_contracts.py", "api_tasks.py", "node_analysis.py",
     "result_store.py",
     "wechat_source.py", "real_backend.py", "real_http.py", "snapshot_cache.py", "wechat_bridge.py",
+    "qq_source.py", "ntqq_reader.py",
     "windows_file_owners.py",
 )
 NATIVE_READER = (

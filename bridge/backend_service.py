@@ -1666,6 +1666,9 @@ class Backend:
         account, workdir, store = self._scoped_identity()
         if requested_account != account:
             raise AccountChangedError()
+        prepare = getattr(self.source, "prepare_browse", None)
+        if callable(prepare):
+            prepare(user, before=before, around=around)
         page = browse_history(self.source, account, user, before=before, around=around,
                               limit=limit, max_issued_images=MAX_ISSUED_IMAGES)
         version = self.analyzer.analysis_version()
@@ -1686,6 +1689,9 @@ class Backend:
         account, workdir, _store = self._scoped_identity()
         if requested_account != account:
             raise AccountChangedError()
+        prepare = getattr(self.source, "prepare_browse", None)
+        if callable(prepare):
+            prepare(user, before=before)
         page = search_history(self.source, account, user, query=query, day=day,
                               before=before, limit=limit,
                               max_issued_images=MAX_ISSUED_IMAGES)
