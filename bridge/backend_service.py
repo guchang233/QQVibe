@@ -1,6 +1,6 @@
 """Application service coordinating account-scoped analysis and background jobs.
 
-WeChat IO, Node process IO, and SQLite persistence live behind adapters/repositories.
+QQ IO, Node process IO, and SQLite persistence live behind adapters/repositories.
 Constructor injection (source, analyzer, store_factory) remains supported.
 """
 from __future__ import annotations
@@ -42,7 +42,6 @@ from node_analysis import NodeAnalysis
 from profile_signals import keywords_from_counts, summary_from_aggregate
 from profile_state import empty_state as empty_profile_state, traits_from_state
 from result_store import project_result_store
-from wechat_source import WeChatSource
 
 
 class Backend:
@@ -83,7 +82,7 @@ class Backend:
                     self.active_api_config = {key: selected["api"][key]
                                               for key in ("protocol", "baseUrl", "model", "contextTokens")}
             except ModelSourceUnavailable:
-                # A damaged encrypted profile must not prevent local WeChat access.
+                # A damaged encrypted profile must not prevent local QQ access.
                 pass
         self.store_factory = store_factory or self._project_store
         self.selection_store = selection_store or ConversationSelectionStore(
@@ -368,7 +367,7 @@ class Backend:
         state = "idle"
         error = None
         account = None
-        if isinstance(self.source, WeChatSource) or self.source.db is not None:
+        if getattr(self.source, "db", None) is not None:
             try:
                 account, _ = self.source.identity()
                 state = "ready"
@@ -641,7 +640,7 @@ class Backend:
                 # or application-side context slicing.
                 batch_window = text_window
                 prepared = {item["id"]: message_input.prepare_item(
-                    item, account_id=account, conversation_id=user, source_kind="wechat")
+                    item, account_id=account, conversation_id=user, source_kind="qq")
                     for item in pending}
                 wire = []
                 for item in batch_window:
@@ -1649,10 +1648,9 @@ class Backend:
                    if type(getattr(messages, "has_more_before", None)) is bool else {})}
 
     def message_windows(self, requested_account, users):
-        if not isinstance(self.source, WeChatSource):
-            ready = getattr(self.source, "require_messages_ready", None)
-            if callable(ready):
-                ready()
+        ready = getattr(self.source, "require_messages_ready", None)
+        if callable(ready):
+            ready()
         windows = self.source.message_windows(users, 80, expected_account=requested_account)
         return {"account": requested_account, "windows": [
             {"user": user, "messages": [
@@ -1862,7 +1860,7 @@ class Backend:
         # Attach the local unified-input metadata at the one point where the trusted
         # account/conversation scope is known. Legacy fields stay untouched.
         wire_context = message_input.prepare_messages(context, account_id=account,
-                                                      conversation_id=user, source_kind="wechat")
+                                                      conversation_id=user, source_kind="qq")
         try:
             session = account + ":" + str(store.path) + ":" + user
             response = (self.analyzer.analyze(session, wire_context, item["id"],

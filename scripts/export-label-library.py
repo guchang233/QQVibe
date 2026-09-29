@@ -21,7 +21,7 @@ assert set(faces) == {item['id'] for item in catalog['emotions']}
 counts = {name: len(catalog[name]) for name in
           ('emotions', 'intents', 'expressions', 'socialIntents', 'playfulIntents')}
 lines = [
-    'WechatVibe｜现有标签词库与扩充用资料',
+    'QQVibe｜现有标签词库与扩充用资料',
     f'导出时间：{datetime.now():%Y-%m-%d %H:%M}',
     f'词库版本：{catalog["version"]}',
     f'显示简称版本：{catalog["intentDisplayVersion"]}',

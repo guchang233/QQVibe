@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WechatVibe</title>
-  <link rel="icon" type="image/png" href="/assets/wechatvibe-icon.png">
+  <title>QQVibe</title>
+  <link rel="icon" type="image/png" href="/assets/qqvibe-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="startup-overlay" id="startupOverlay" role="status" aria-live="polite" hidden>
   <div class="startup-card">
-    <div class="startup-brand"><img src="/assets/wechatvibe-icon.png" alt=""><strong>WechatVibe</strong></div>
+    <div class="startup-brand"><img src="/assets/qqvibe-icon.png" alt=""><strong>QQVibe</strong></div>
     <div class="startup-steps" aria-hidden="true">
-      <div class="startup-step active" data-step="account">连接当前微信账号</div>
+      <div class="startup-step active" data-step="account">连接当前QQ账号</div>
       <div class="startup-step" data-step="sessions">读取会话列表</div>
       <div class="startup-step" data-step="messages">准备全部会话消息</div>
     </div>
-    <div class="startup-status" id="startupStatus">正在连接当前微信账号…</div>
+    <div class="startup-status" id="startupStatus">正在连接当前QQ账号…</div>
     <div class="startup-actions">
       <button type="button" class="startup-retry" id="startupRetry" hidden>重试</button>
       <button type="button" class="startup-continue" id="startupContinue" hidden>进入空界面</button>
@@ -170,7 +170,7 @@
 
       <!-- Textarea Wrap -->
       <div class="input-textarea-wrap">
-        <textarea id="chatInput" class="chat-textarea" placeholder="草稿仅用于复制，不会发送到微信"></textarea>
+        <textarea id="chatInput" class="chat-textarea" placeholder="草稿仅用于复制，不会发送到QQ"></textarea>
       </div>
 
       <!-- Bottom Action Row -->
@@ -351,7 +351,7 @@
   <!-- Toast Notification -->
   <div class="toast-msg" id="toastMsg"></div>
 
-  <!-- WeChat Desktop Settings Modal (设置中心) -->
+  <!-- QQ Desktop Settings Modal (设置中心) -->
   <div class="settings-modal-overlay" id="settingsModal">
     <div class="settings-modal-card">
       <button class="settings-close-btn" id="btnCloseSettings" title="关闭设置">
@@ -490,7 +490,7 @@
           <div class="settings-row">
             <span>管理账号</span>
             <div class="account-status-control">
-              <span id="accountCheckSummary" role="status">正在连接微信…</span>
+              <span id="accountCheckSummary" role="status">正在连接QQ…</span>
               <button type="button" class="settings-action-btn" id="btnManageAccounts">查看账号</button>
             </div>
           </div>
@@ -502,7 +502,7 @@
               </div>
             </div>
             <div class="account-manager-head">
-              <span>已保存的微信账号</span>
+              <span>已保存的QQ账号</span>
               <div class="account-manager-head-actions">
                 <button type="button" class="settings-action-btn" id="btnToggleAccountManagement" aria-pressed="false">管理</button>
                 <button type="button" class="settings-action-btn" id="btnRefreshAccounts">刷新</button>
@@ -539,7 +539,7 @@
 
         <!-- Panel 2: About -->
         <div class="settings-panel" id="panelAbout">
-        <div class="settings-title about-title"><img src="/assets/wechatvibe-icon.png" alt="" class="about-brand-icon">关于 WechatVibe</div>
+        <div class="settings-title about-title"><img src="/assets/qqvibe-icon.png" alt="" class="about-brand-icon">关于 QQVibe</div>
         <div class="about-card">
           <button type="button" class="about-row about-version-row" id="btnAboutVersion" aria-label="查看软件更新">
             <span class="about-label">当前版本</span>
@@ -562,9 +562,9 @@
           </div>
           <div class="about-row">
             <span class="about-label">GitHub 仓库</span>
-            <a class="about-val about-link user-select-all" href="https://github.com/tswawa/WechatVibe" target="_blank" rel="noopener noreferrer">
+            <a class="about-val about-link user-select-all" href="https://github.com/tswawa/QQVibe" target="_blank" rel="noopener noreferrer">
               <svg class="about-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297a12 12 0 0 0-3.793 23.386c.6.111.82-.261.82-.577v-2.234c-3.338.726-4.043-1.416-4.043-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.605-2.665-.304-5.466-1.333-5.466-5.932 0-1.311.469-2.381 1.236-3.221-.123-.303-.536-1.524.117-3.176 0 0 1.008-.323 3.301 1.23A11.535 11.535 0 0 1 12 6.386c1.02.005 2.047.138 3.006.404 2.291-1.553 3.297-1.23 3.297-1.23.655 1.652.242 2.873.12 3.176.77.84 1.235 1.91 1.235 3.221 0 4.61-2.805 5.625-5.476 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.216.694.824.576A12.001 12.001 0 0 0 12 .297z"/></svg>
-              <span>WechatVibe</span>
+              <span>QQVibe</span>
             </a>
           </div>
         </div>
@@ -577,7 +577,7 @@
   <div class="update-modal-card">
     <div class="update-modal-head">
       <div class="update-modal-identity">
-        <img src="/assets/wechatvibe-icon.png" alt="" class="update-modal-icon">
+        <img src="/assets/qqvibe-icon.png" alt="" class="update-modal-icon">
         <h2 id="updateModalTitle">软件更新</h2>
       </div>
       <button type="button" class="update-modal-close" id="btnCloseUpdate" title="关闭" aria-label="关闭软件更新">×</button>
@@ -596,7 +596,7 @@
       </div>
     </div>
     <div class="update-modal-actions">
-      <a id="updateReleaseLink" href="https://github.com/tswawa/WechatVibe/releases" target="_blank" rel="noopener noreferrer">官方发布页</a>
+      <a id="updateReleaseLink" href="https://github.com/tswawa/QQVibe/releases" target="_blank" rel="noopener noreferrer">官方发布页</a>
       <button type="button" class="update-check-button" id="btnCheckUpdates">检查更新</button>
       <button type="button" class="update-primary-button" id="btnBeginUpdate" hidden>下载并安装</button>
     </div>

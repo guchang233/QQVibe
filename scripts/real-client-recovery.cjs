@@ -20,7 +20,7 @@ function launcherCreatedBridge(stdout) {
 function monitorBridge({ root, url, instanceId, isOpen, onRecovered }) {
   const port = Number(new URL(url).port);
   const bundledPython = path.join(root, 'runtime', 'python', 'python.exe');
-  const python = process.env.WECHATVIBE_PYTHON || (fs.existsSync(bundledPython) ? bundledPython : 'python');
+  const python = process.env.QQVIBE_PYTHON || (fs.existsSync(bundledPython) ? bundledPython : 'python');
   const launcher = path.join(root, 'scripts', 'start-real-client.py');
   const noAutoRecovery = path.join(root, '.local', 'real-client-runtime', 'no-auto-recovery.json');
   let checking = false;

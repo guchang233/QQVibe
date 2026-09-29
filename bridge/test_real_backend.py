@@ -1,7 +1,5 @@
-import hashlib
 import http.client
 import json
-import os
 import sqlite3
 import tempfile
 import threading
@@ -11,8 +9,8 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from real_backend import AccountChangedError, Backend, ForecastRequestError, NodeAnalysis, ResultStore, WeChatSource, affinity, avatar_candidates, infer_mbti, message_id, validate_personality_evidence
-from chat_server import classify
+from real_backend import AccountChangedError, Backend, ForecastRequestError, NodeAnalysis, ResultStore, QQSource, affinity, infer_mbti, message_id, validate_personality_evidence
+import qq_client
 from profile_signals import STYLE_LABELS, historical_mood
 from real_http import ROOT, make_handler
 from instance_identity import instance_id
@@ -71,11 +69,174 @@ class SyntheticSource:
         rows = self.rows.setdefault(user, [])
         sender = sender or ("member" if user.endswith("@chatroom") else user)
         for number in range(start, start + count):
-            row = {"local_id": number + 1, "sort_seq": number + 1, "server_id": number + 1}
-            rows.append({"id": message_id(self.account, user, "message__message_0.db", row),
+            rows.append({"id": message_id(self.account, user, str(number + 1)),
                          "side": "self" if sender == "me" else "other", "kind": "text",
                          "text": text or f"synthetic {number}", "senderId": sender,
-                         "_sort": [number + 1, "message__message_0.db", number + 1]})
+                         "_sort": [number + 1, "qq", number + 1]})
+
+
+class FakeQqClient:
+    """In-memory stand-in for `qq_client.QqClient` over the injected reader.
+
+    It mirrors the wire shapes produced by `qqnt/src/reader.js`: decoded messages
+    already carry ``kind``/``type``/``text`` and a ``[time, "qq", seq]`` sort key,
+    so `QQSource` can be exercised without a real QQ process.
+    """
+
+    def __init__(self, account="account-a", uid="me", uin="10001", nickname="Self"):
+        self.account = account
+        self.uid = uid
+        self.uin = uin
+        self.nickname = nickname
+        self.friends = {}
+        self.groups = {}
+        self.sessions_list = []
+        self.rows = {}
+        self.images = {}
+        self.fail = False
+
+    # --- fixture builders ------------------------------------------------------
+    def add_contact(self, peer, *, group=False, name=None, avatar=""):
+        identifier = peer + "@chatroom" if group else peer
+        entry = {"id": identifier, "name": name or peer, "avatar": avatar,
+                 "avatarCandidates": [avatar] if avatar else []}
+        (self.groups if group else self.friends)[identifier] = entry
+        return entry
+
+    def add_message(self, peer, msg_id, *, seq=None, time_ms=0, text="", kind="text",
+                    type_="textElement", side="other", sender=None, sender_name="",
+                    avatar="", image=None):
+        seq = seq if seq is not None else len(self.rows.get(peer, [])) + 1
+        sender = sender if sender is not None else ("me" if side == "self" else peer)
+        row = {"msgId": str(msg_id), "msgTime": time_ms, "msgSeq": seq, "side": side,
+               "text": text, "kind": kind, "type": type_, "senderId": sender,
+               "senderName": sender_name or sender, "avatar": avatar,
+               "sort": [time_ms, "qq", seq]}
+        if image is not None:
+            row["image"] = image
+        self.rows.setdefault(peer, []).append(row)
+        return row
+
+    def _ordered(self, peer):
+        return sorted(self.rows.get(peer, []), key=lambda item: item["sort"])
+
+    # --- RPC surface -----------------------------------------------------------
+    def self_info(self):
+        if self.fail:
+            raise qq_client.ReaderUnavailable("synthetic")
+        return {"account": self.account, "uid": self.uid, "uin": self.uin,
+                "nickname": self.nickname, "ready": bool(self.account)}
+
+    def contacts(self):
+        return {"friends": list(self.friends.values()), "groups": list(self.groups.values())}
+
+    def sessions(self):
+        return {"self": {"username": self.uid, "name": self.nickname},
+                "sessions": self.sessions_list, "account": self.account,
+                "messagesReady": True}
+
+    def messages(self, peer, *, is_group=False, limit=80, offset=0, order="latest"):
+        rows = self._ordered(peer)
+        window = rows[-(limit + offset):len(rows) - offset if offset else None]
+        return {"messages": window[-limit:], "hasMoreBefore": len(rows) > limit + offset}
+
+    def history_highwater(self, peer, is_group=False):
+        rows = self._ordered(peer)
+        return rows[-1]["sort"] if rows else None
+
+    def history_page(self, peer, *, ceiling=None, after=None, limit=1000, is_group=False):
+        rows = [item for item in self._ordered(peer)
+                if (ceiling is None or item["sort"] <= ceiling) and
+                (after is None or item["sort"] > after)]
+        page = rows[:limit]
+        return {"messages": page, "nextAfter": page[-1]["sort"] if page else None}
+
+    def preceded_text(self, peer, before, limit=3, is_group=False):
+        rows = [item for item in self._ordered(peer)
+                if item["sort"] < before and item["kind"] == "text" and item["text"].strip()]
+        return rows[-limit:]
+
+    def history_before(self, peer, before, *, limit=100, is_group=False):
+        rows = [item for item in self._ordered(peer) if item["sort"] < before]
+        return {"messages": rows[-limit:], "hasMoreBefore": len(rows) > limit}
+
+    def history_after(self, peer, after, *, limit=100, is_group=False):
+        rows = [item for item in self._ordered(peer) if item["sort"] > after]
+        return {"messages": rows[:limit], "hasMoreAfter": len(rows) > limit}
+
+    def message_at(self, peer, position, *, is_group=False):
+        return next((item for item in self._ordered(peer) if item["sort"] == position), None)
+
+    def history_search(self, peer, *, before=None, start_ms=None, end_ms=None,
+                       query="", limit=50, is_group=False):
+        rows = self._ordered(peer)
+        if before is not None:
+            rows = [item for item in rows if item["sort"] < before]
+        if start_ms is not None:
+            rows = [item for item in rows if item["msgTime"] >= start_ms]
+        if end_ms is not None:
+            rows = [item for item in rows if item["msgTime"] < end_ms]
+        needle = query.strip().lower()
+        if needle:
+            rows = [item for item in rows if needle in item["text"].lower()]
+        matched = list(reversed(rows))
+        page = matched[:limit]
+        return {"messages": page, "hasMore": len(matched) > limit,
+                "nextAfter": page[-1]["sort"] if page else None}
+
+    def senders(self, peer, *, is_group=False):
+        seen = {}
+        for item in self._ordered(peer):
+            seen.setdefault(item["senderId"], {"id": item["senderId"],
+                                               "name": item["senderName"],
+                                               "avatar": item["avatar"]})
+        return list(seen.values())
+
+    def texts_by_ids(self, peer, ids, *, is_group=False):
+        wanted = {str(value) for value in ids}
+        found = []
+        for item in self._ordered(peer):
+            if item["kind"] != "text" or not item["text"]:
+                continue
+            identifier = message_id(self.account, peer, item["msgId"])
+            if identifier in wanted:
+                found.append([identifier, item["text"]])
+        return found
+
+    def quoted_history_page(self, peer, *, ceiling=None, after=None, limit=64,
+                            member=None, is_group=False):
+        rows = [item for item in self._ordered(peer) if item["type"] == "replyElement"]
+        if member:
+            rows = [item for item in rows if item["senderId"] == member]
+        if ceiling is not None:
+            rows = [item for item in rows if item["sort"] <= ceiling]
+        if after is not None:
+            rows = [item for item in rows if item["sort"] > after]
+        page = rows[:limit]
+        return {"messages": page, "nextAfter": page[-1]["sort"] if page else None}
+
+    def profile_metadata(self, peer, member=None, is_group=False):
+        counts, text_count = {}, 0
+        for item in self._ordered(peer):
+            entry = counts.setdefault(item["senderId"], {"count": 0, "text": 0})
+            entry["count"] += 1
+            if item["kind"] == "text" and item["text"].strip():
+                entry["text"] += 1
+                text_count += 1
+        selected = counts.get(member or peer, {"count": 0, "text": 0})
+        return {"counts": counts, "total": sum(entry["count"] for entry in counts.values()),
+                "count": selected["count"] if member else sum(
+                    entry["count"] for entry in counts.values()),
+                "textCount": selected["text"] if member else text_count}
+
+    def image(self, ref):
+        return self.images.get(ref.get("msgId"))
+
+    def reset(self):
+        pass
+
+    def available(self):
+        return not self.fail
 
 
 class SyntheticAnalyzer:
@@ -145,201 +306,6 @@ class BackendTests(unittest.TestCase):
         with self.assertRaises(AccountChangedError):
             self.backend.start("friend", "recent", 1, expected_account="other-account")
         self.assertEqual(self.backend.tasks.unfinished_tasks, 0)
-
-    def test_quoted_reply_is_text_but_other_app_messages_are_not(self):
-        quoted_type = (57 << 32) | 49
-        class FakeDB:
-            account = "account-a"
-
-            @staticmethod
-            def _msg_type_name(local_type):
-                return "文本" if local_type == 1 else "文件/链接/卡片"
-
-            @staticmethod
-            def _friendly_content(raw, _type):
-                return raw.decode("utf-8")
-
-        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
-        xml = "<msg><appmsg><title>引用后的新文字</title><type>57</type><refermsg><content>旧文字</content></refermsg></appmsg></msg>"
-        def render(local_type, content, *, compressed=False):
-            raw = content.encode("utf-8")
-            record = (1, local_type, 1, 1, None if compressed else raw,
-                      raw if compressed else None, 1, 1)
-            return source._render_row(FakeDB(), "room@chatroom",
-                                      (record, "message__message_0.db", {1: "member"}), {}, "me")
-
-        self.assertEqual((render(quoted_type, xml)["kind"], render(quoted_type, xml)["text"]),
-                         ("text", "引用后的新文字"))
-        self.assertEqual(render(quoted_type, xml, compressed=True)["kind"], "text")
-        referenced_image = xml.replace("<content>旧文字</content>", "<content><img src='x'/></content>")
-        self.assertEqual(render(quoted_type, referenced_image)["text"], "引用后的新文字")
-        long_title = "长" * 120
-        self.assertEqual(render(quoted_type, xml.replace("引用后的新文字", long_title))["text"], long_title)
-        self.assertEqual(render(49, xml)["kind"], "other")
-        self.assertEqual(render(quoted_type, "<msg><appmsg><title>无引用卡片</title></appmsg></msg>")["kind"], "other")
-        self.assertEqual(render(quoted_type, xml.replace("引用后的新文字", "[图片]"))["kind"], "other")
-
-    def test_quoted_reply_counts_as_text_for_group_and_member(self):
-        room = "room@chatroom"
-        table = "Msg_" + hashlib.md5(room.encode()).hexdigest()
-        dbpath = Path(self.temp.name) / "message__message_0.db"
-        with closing(sqlite3.connect(dbpath)) as conn, conn:
-            conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
-            conn.execute("INSERT INTO Name2Id(rowid,user_name) VALUES (1,'member')")
-            conn.execute(f"CREATE TABLE {table} (local_id INTEGER,local_type INTEGER,real_sender_id INTEGER,"
-                         "create_time INTEGER,message_content BLOB,compress_content BLOB,"
-                         "server_id INTEGER,sort_seq INTEGER)")
-            valid_quote = b"<msg><appmsg><title>reply</title><type>57</type><refermsg/></appmsg></msg>"
-            invalid_quote = b"<msg><appmsg><title>card</title><type>57</type></appmsg></msg>"
-            conn.executemany(f"INSERT INTO {table} VALUES (?,?,1,1,?,NULL,?,?)",
-                             [(index, local_type, content, index, index)
-                              for index, (local_type, content) in enumerate(
-                                  ((1, b"text"), ((57 << 32) | 49, valid_quote),
-                                   ((57 << 32) | 49, invalid_quote), (49, valid_quote)), 1)])
-
-        class FakeDB:
-            account = "account-a"
-
-            @staticmethod
-            def _msg_conns(_user):
-                return [(sqlite3.connect(dbpath), table)]
-
-            @staticmethod
-            def _msg_type_name(local_type):
-                return "文本" if local_type == 1 else "文件/链接/卡片"
-
-            @staticmethod
-            def _friendly_content(raw, _type):
-                return raw.decode("utf-8")
-
-        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
-        source._contacts = lambda _db: {}
-        source.self_user = lambda *_args: "me"
-        self.assertEqual(source.stats(room)[:2], (4, 2))
-        self.assertEqual(source.stats(room, "member")[:2], (4, 2))
-        self.assertEqual(source.profile_metadata(room)["textCount"], 2)
-        self.assertEqual(source.profile_metadata(room, "member")["textCount"], 2)
-        quoted, cursor = source.quoted_history_page(room, (4, dbpath.name, 4))
-        self.assertEqual(([item["kind"] for item in quoted], cursor),
-                         (["text", "other"], (3, dbpath.name, 3)))
-        self.assertEqual([item["text"] for item in source.preceding_text_context(
-            room, (2, dbpath.name, 2))], ["text"])
-
-    def test_profile_text_count_matches_rendered_consumable_text_and_caches_decode(self):
-        room = "room@chatroom"
-        table = "Msg_" + hashlib.md5(room.encode()).hexdigest()
-        dbpath = Path(self.temp.name) / "message__message_0.db"
-        quote_type = (57 << 32) | 49
-        quote = b"<msg><appmsg><title>reply</title><type>57</type><refermsg/></appmsg></msg>"
-        rows = ((1, 1, 1, b"hello", None),
-                (2, 1, 1, b"<sysmsg><text>notice</text></sysmsg>", None),
-                (3, 1, 1, b"<msg><appmsg><title>card</title></appmsg></msg>", None),
-                (4, quote_type, 1, quote, None),
-                (5, quote_type, 2, None, quote),
-                (6, 1, 2, b"world", None),
-                (7, 49, 2, quote, None),
-                (8, 1, 2, b"   ", None))
-        with closing(sqlite3.connect(dbpath)) as conn, conn:
-            conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
-            conn.executemany("INSERT INTO Name2Id(rowid,user_name) VALUES (?,?)",
-                             ((1, "member-a"), (2, "member-b")))
-            conn.execute(f"CREATE TABLE {table} (local_id INTEGER,local_type INTEGER,real_sender_id INTEGER,"
-                         "create_time INTEGER,message_content BLOB,compress_content BLOB,"
-                         "server_id INTEGER,sort_seq INTEGER)")
-            conn.executemany(f"INSERT INTO {table} VALUES (?,?,?,?,?,?,?,?)",
-                             ((local_id, kind, sender, 1, body, compressed, local_id, local_id)
-                              for local_id, kind, sender, body, compressed in rows))
-
-        decoded = []
-
-        class FakeDB:
-            account = "account-a"
-
-            @staticmethod
-            def _msg_conns(_user):
-                return [(sqlite3.connect(dbpath), table)]
-
-            @staticmethod
-            def _msg_type_name(kind):
-                return "文本" if kind == 1 else "文件/链接/卡片"
-
-            @staticmethod
-            def _friendly_content(raw, _type):
-                decoded.append(raw)
-                return raw.decode("utf-8")
-
-        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
-        source._contacts = lambda _db: {}
-        source.self_user = lambda *_args: "me"
-        rendered = source.messages(room, len(rows))
-        consumable = [item for item in rendered if item["kind"] == "text" and item["text"].strip()]
-        self.assertEqual(len(consumable), 4)
-        decoded.clear()
-        whole = source.profile_metadata(room)
-        self.assertEqual((whole["count"], whole["textCount"]), (8, len(consumable)))
-        self.assertEqual(source.profile_metadata(room, "member-a")["textCount"], 2)
-        self.assertEqual(source.profile_metadata(room, "member-b")["textCount"], 2)
-        first_decode_count = len(decoded)
-        self.assertGreater(first_decode_count, 0)
-        self.assertEqual(source.profile_metadata(room)["textCount"], 4)
-        self.assertEqual(len(decoded), first_decode_count, "unchanged snapshot must use cached metadata")
-        self.assertEqual(source.stats(room)[:2], (8, 4))
-        self.assertEqual(source.stats(room, "member-a")[:2], (4, 2))
-        previous_stat = dbpath.stat()
-        with closing(sqlite3.connect(dbpath)) as conn, conn:
-            conn.execute(f"INSERT INTO {table} VALUES (9,1,2,1,?,NULL,9,9)", (b"new text",))
-        # Cache invalidation follows a refreshed snapshot's file signature. A fast
-        # in-place synthetic SQLite write may keep both size and filesystem mtime.
-        # Make the fixture's snapshot refresh deterministic instead of sleeping.
-        os.utime(dbpath, ns=(previous_stat.st_atime_ns, previous_stat.st_mtime_ns + 2_000_000_000))
-        self.assertEqual(source.profile_metadata(room)["textCount"], 5)
-        self.assertGreater(len(decoded), first_decode_count)
-
-    def test_member_quote_page_filters_sender_before_decoding(self):
-        room = "room@chatroom"
-        table = "Msg_" + hashlib.md5(room.encode()).hexdigest()
-        dbpath = Path(self.temp.name) / "message__message_0.db"
-        quote_type = (57 << 32) | 49
-        quote = b"<msg><appmsg><title>reply</title><type>57</type><refermsg/></appmsg></msg>"
-        with closing(sqlite3.connect(dbpath)) as conn, conn:
-            conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
-            conn.executemany("INSERT INTO Name2Id(rowid,user_name) VALUES (?,?)",
-                             ((1, "member-a"), (2, "member-b")))
-            conn.execute(f"CREATE TABLE {table} (local_id INTEGER,local_type INTEGER,real_sender_id INTEGER,"
-                         "create_time INTEGER,message_content BLOB,compress_content BLOB,"
-                         "server_id INTEGER,sort_seq INTEGER)")
-            conn.executemany(f"INSERT INTO {table} VALUES (?,?,?,?,?,?,?,?)",
-                             ((number, quote_type, 1 if number == 41 else 2, 1, quote, None,
-                               number, number) for number in range(1, 65)))
-
-        decoded = []
-
-        class FakeDB:
-            account = "account-a"
-
-            @staticmethod
-            def _msg_conns(_user):
-                return [(sqlite3.connect(dbpath), table)]
-
-            @staticmethod
-            def _msg_type_name(_kind):
-                return "文件/链接/卡片"
-
-            @staticmethod
-            def _friendly_content(raw, _type):
-                decoded.append(raw)
-                return raw.decode("utf-8")
-
-        source = WeChatSource(factory=lambda: FakeDB(), classifier=classify)
-        source._contacts = lambda _db: {}
-        source.self_user = lambda *_args: "me"
-        page, cursor = source.quoted_history_page(room, (64, dbpath.name, 64), member="member-a")
-        self.assertEqual(([item["senderId"] for item in page], cursor),
-                         (["member-a"], (41, dbpath.name, 41)))
-        self.assertEqual(len(decoded), 1)
-        self.assertEqual(source.quoted_history_page(room, (64, dbpath.name, 64), cursor,
-                         member="member-a"), ([], None))
-        self.assertEqual(len(decoded), 1)
 
     def test_model_provider_reflects_runtime_fallback(self):
         analyzer = NodeAnalysis()
@@ -1026,36 +992,15 @@ class BackendTests(unittest.TestCase):
         self.source.texts_for_refs.assert_not_called()
         self.source.history_highwater.assert_not_called()
 
-    def test_source_fetches_profile_text_by_shard_and_local_primary_key(self):
-        user = "friend"
-        shard = "message__message_0.db"
-        rel = str(Path("message") / "message_0.db")
-        path = Path(self.temp.name) / shard
-        table = "Msg_" + hashlib.md5(user.encode()).hexdigest()
-        with closing(sqlite3.connect(path)) as conn, conn:
-            conn.execute(f"CREATE TABLE {table} (local_id INTEGER PRIMARY KEY, local_type INTEGER, "
-                         "message_content TEXT, compress_content BLOB, server_id INTEGER, sort_seq INTEGER)")
-            conn.executemany(f"INSERT INTO {table} VALUES (?,?,?,?,?,?)", [
-                (1, 1, "alpha alpha", None, 11, 101),
-                (2, 1, "private second", None, 12, 102),
-            ])
-
-        class FakeDB:
-            account = "account-a"
-            _db_files = [(rel, str(path), 0)]
-
-            def _open(self, _rel):
-                return sqlite3.connect(path)
-
-            def _msg_type_name(self, _kind):
-                return "text"
-
-        db = FakeDB()
-        source = WeChatSource(factory=lambda: db, classifier=lambda _kind, value: ("text", value))
-        stable_id = message_id("account-a", user, shard,
-                               {"local_id": 1, "sort_seq": 101, "server_id": 11})
-        self.assertEqual(source.texts_for_refs(user, [(shard, 1, stable_id),
-                                                      (shard, 2, "wrong-id")]), ["alpha alpha"])
+    def test_source_fetches_profile_text_by_reader_id(self):
+        client = FakeQqClient()
+        client.add_message("friend", "m1", seq=1, time_ms=101, text="alpha alpha")
+        client.add_message("friend", "m2", seq=2, time_ms=102, text="private second")
+        source = QQSource(client=client)
+        stable_id = message_id("account-a", "friend", "m1")
+        self.assertEqual(source.texts_for_refs("friend", [("qq", 1, stable_id),
+                                                          ("qq", 2, "wrong-id")]),
+                         ["alpha alpha"])
 
     def test_account_switch_during_analysis_or_profile_never_returns_old_result(self):
         self.source.add("friend", 1)
@@ -1084,7 +1029,9 @@ class BackendTests(unittest.TestCase):
             self.backend.profile("friend")
 
     def test_no_live_account_fails_closed_at_http_boundary(self):
-        source = WeChatSource(factory=lambda **_kwargs: None, active_account_locator=lambda: None)
+        client = FakeQqClient()
+        client.fail = True
+        source = QQSource(client=client)
         backend = Backend(source, self.analyzer, self.store_factory)
         server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(backend))
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -1112,10 +1059,9 @@ class BackendTests(unittest.TestCase):
 
     def test_affinity_reference_and_stable_identity(self):
         self.assertEqual(affinity([1, -1]), 33)
-        row = {"local_id": 1, "sort_seq": 5, "server_id": 9}
-        self.assertNotEqual(message_id("a", "user", "shard0", row), message_id("b", "user", "shard0", row))
-        self.assertNotEqual(message_id("a", "user", "shard0", row), message_id("a", "room", "shard0", row))
-        self.assertNotEqual(message_id("a", "user", "shard0", row), message_id("a", "user", "shard1", row))
+        self.assertNotEqual(message_id("a", "user", "m1"), message_id("b", "user", "m1"))
+        self.assertNotEqual(message_id("a", "user", "m1"), message_id("a", "room", "m1"))
+        self.assertNotEqual(message_id("a", "user", "m1"), message_id("a", "user", "m2"))
 
     def test_health_and_http_contract_failures(self):
         self.analyzer.model = {"state": "missing", "message": "synthetic unavailable"}
@@ -1431,267 +1377,6 @@ class BackendTests(unittest.TestCase):
         self.analyzer.evidence_for = lambda _message: personality_evidence()
         self.assertEqual(self.run_job("friend")["status"], "done")
         self.assertEqual(self.backend.profile("friend")["mbtiInference"]["eligibleMessages"], 1)
-
-    def test_session_sync_full_order_metadata_and_safe_preview(self):
-        workdir = Path(self.temp.name)
-        contact = workdir / "contact__contact.db"
-        session = workdir / "session__session.db"
-        with closing(sqlite3.connect(contact)) as conn, conn:
-            conn.execute("CREATE TABLE contact (username TEXT,nick_name TEXT,remark TEXT,small_head_url TEXT,big_head_url TEXT)")
-            conn.execute("INSERT INTO contact VALUES ('me','Self','','','')")
-            conn.execute("INSERT INTO contact VALUES ('filehelper','','','https://img.example/small','https://img.example/big')")
-        with closing(sqlite3.connect(session)) as conn, conn:
-            conn.execute("CREATE TABLE SessionTable (username TEXT,unread_count INT,summary TEXT,last_timestamp INT,"
-                         "last_msg_sender TEXT,last_sender_display_name TEXT,sort_timestamp INT,is_hidden INT,"
-                         "last_msg_type INT,last_msg_sub_type INT,is_top INT)")
-            conn.executemany("INSERT INTO SessionTable VALUES (?,?,?,?,?,?,?,?,?,?,?)", [
-                (f"friend{index}", index, "hello", 1000 + index, "sender", "", index + 1, 0,
-                 49 if index < 2 else 1, 5 if index == 0 else 6 if index == 1 else 0, 0)
-                for index in range(205)])
-            conn.execute("INSERT INTO SessionTable VALUES ('filehelper',2,'<msg>unsafe</msg>',0,'system','',999,0,3,0,1)")
-            conn.execute("INSERT INTO SessionTable VALUES ('hidden',0,'hidden',1,'','',1000,1,1,0,0)")
-
-        class FakeDB:
-            account = "account-a"
-            wxid = "me"
-            _db_files = [("contact", "contact.db", None), ("session", "session.db", None)]
-
-            def _open(self, rel):
-                return sqlite3.connect(contact if rel == "contact" else session)
-
-            def get_self_info(self):
-                return {"username": "me"}
-
-        source = WeChatSource(lambda: FakeDB(), lambda kind, content: (kind, content))
-        sessions = source.sessions()
-        self.assertEqual(len(sessions["sessions"]), 206)
-        self.assertEqual([item["username"] for item in sessions["sessions"][:2]], ["filehelper", "friend204"])
-        first = sessions["sessions"][0]
-        self.assertEqual((first["name"], first["unreadCount"], first["preview"], first["time"]),
-                         ("文件传输助手", 2, "[图片]", None))
-        self.assertEqual(first["avatarCandidates"], ["https://img.example/small", "https://img.example/big"])
-        self.assertEqual((first["sortTimestamp"], first["lastMsgType"], first["pinned"]), (999, 3, True))
-        self.assertEqual([item["preview"] for item in sessions["sessions"][-2:]], ["[文件]", "[链接]"])
-        with closing(sqlite3.connect(session)) as conn, conn:
-            conn.execute("ALTER TABLE SessionTable DROP COLUMN last_msg_type")
-            conn.execute("ALTER TABLE SessionTable DROP COLUMN last_msg_sub_type")
-            conn.execute("ALTER TABLE SessionTable DROP COLUMN is_top")
-        fallback = source.sessions()["sessions"][0]
-        self.assertEqual((fallback["lastMsgType"], fallback["lastMsgSubType"], fallback["pinned"], fallback["preview"]),
-                         (None, None, None, "[消息]"))
-
-    def test_precise_local_image_resolution_and_rejection(self):
-        workdir = Path(self.temp.name)
-        user = "friend"
-        table = "Msg_" + hashlib.md5(user.encode()).hexdigest()
-        base = workdir / "account" / "msg" / "attach" / hashlib.md5(user.encode()).hexdigest()
-        base.mkdir(parents=True)
-        contact = workdir / "contact__contact.db"
-        with closing(sqlite3.connect(contact)) as conn, conn:
-            conn.execute("CREATE TABLE contact (username TEXT,nick_name TEXT,remark TEXT,small_head_url TEXT,big_head_url TEXT)")
-            conn.execute("INSERT INTO contact VALUES ('friend','Friend','','','')")
-        image_bytes = {"a" * 32: b"\xff\xd8\xffone", "b" * 32: b"\x89PNG\r\n\x1a\ntwo"}
-        for index, md5 in enumerate(image_bytes):
-            (base / (md5 + ".dat")).write_bytes(b"local")
-            with closing(sqlite3.connect(workdir / f"message__message_{index}.db")) as conn, conn:
-                conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
-                conn.execute("INSERT INTO Name2Id(rowid,user_name) VALUES (3,'friend')")
-                conn.execute(f"CREATE TABLE {table} (local_id INT,local_type INT,real_sender_id INT,create_time INT,"
-                             "message_content BLOB,compress_content BLOB,server_id INT,sort_seq INT,packed_info_data BLOB)")
-                conn.execute(f"INSERT INTO {table} VALUES (1,3,3,1000,'',NULL,?,?,?)",
-                             (index + 10, index + 1, md5.encode()))
-
-        class FakeDB:
-            account = "account-a"
-            wxid = "me"
-            account_dir = str(workdir / "account")
-            _db_files = [("contact", "contact.db", None)]
-
-            def _open(self, rel):
-                return sqlite3.connect(contact)
-
-            def get_self_info(self):
-                return {"username": "me"}
-
-            def _msg_conns(self, _user):
-                return [(sqlite3.connect(workdir / f"message__message_{index}.db"), table) for index in range(2)]
-
-            def _msg_type_name(self, _type):
-                return "图片"
-
-            def _friendly_content(self, content, _type):
-                return content.decode()
-
-        class FakeDownloader:
-            path_override = None
-
-            def __init__(self, _db):
-                pass
-
-            def _img_md5(self, row):
-                return row["packed_info"].decode()
-
-            def _find_dat(self, _user, md5, _created, thumbnail=False):
-                if self.path_override:
-                    return str(self.path_override)
-                path = base / (md5 + ".dat")
-                return str(path) if path.exists() else None
-
-            def decrypt_image(self, path, aes_key=None, xor_key=None):
-                return image_bytes[Path(path).stem]
-
-            def _derive_cfg_key(self):
-                return None
-
-            def _load_persisted_key(self):
-                return None
-
-            def _probe_ct(self, _path):
-                return b"synthetic-probe"
-
-            def _scan_aes_key(self, monitor):
-                raise AssertionError("media lookup must never scan process memory")
-
-            def _derive_xor_key(self, _path):
-                return 0x88
-
-        database = FakeDB()
-        source = WeChatSource(lambda: database, lambda _kind, _content: ("image", "[图片]"), FakeDownloader)
-        messages = source.messages(user, 2)
-        self.assertEqual(len(messages), 2)
-        self.assertEqual(source.media(user, messages[0]["id"]), (image_bytes["a" * 32], "image/jpeg"))
-        self.assertEqual(source.media(user, messages[1]["id"]), (image_bytes["b" * 32], "image/png"))
-        for md5 in image_bytes:
-            (base / (md5 + ".dat")).write_bytes(b"\x07\x08\x56\x32\x08\x07synthetic")
-        self.assertIsNone(source.media(user, messages[0]["id"]))
-        self.assertIsNone(source.media(user, messages[1]["id"]))
-        self.assertEqual(source.media_reason.value, "local-key-unavailable")
-        unavailable_source = WeChatSource(lambda: database, lambda _kind, _content: ("image", "[图片]"), FakeDownloader)
-        unavailable_source.messages(user, 2)
-        self.assertIsNone(unavailable_source.media(user, messages[0]["id"]))
-        self.assertIsNone(unavailable_source.media(user, messages[1]["id"]))
-        self.assertEqual(unavailable_source.media_reason.value, "local-key-unavailable")
-        for md5 in image_bytes:
-            (base / (md5 + ".dat")).write_bytes(b"local")
-        self.assertIsNone(source.media("other", messages[0]["id"]))
-        self.assertIsNone(source.media(user, "wrong"))
-        database.account = "account-b"
-        self.assertIsNone(source.media(user, messages[0]["id"]))
-        database.account = "account-a"
-        image_bytes["a" * 32] = b"<svg>unsafe</svg>"
-        self.assertIsNone(source.media(user, messages[0]["id"]))
-        image_bytes["a" * 32] = b"\xff\xd8\xff" + b"x" * (8 * 1024 * 1024)
-        self.assertIsNone(source.media(user, messages[0]["id"]))
-        image_bytes["a" * 32] = b"\xff\xd8\xffone"
-        outside = workdir / "outside.dat"
-        outside.write_bytes(b"local")
-        FakeDownloader.path_override = outside
-        self.assertIsNone(source.media(user, messages[0]["id"]))
-        FakeDownloader.path_override = None
-        (base / ("a" * 32 + ".dat")).write_bytes(b"x" * (8 * 1024 * 1024 + 1))
-        self.assertIsNone(source.media(user, messages[0]["id"]))
-        (base / ("a" * 32 + ".dat")).unlink()
-        self.assertIsNone(source.media(user, messages[0]["id"]))
-
-    def test_shard_sender_scope_and_compressed_text(self):
-        workdir = Path(self.temp.name)
-        contact = workdir / "contact__contact.db"
-        conn = sqlite3.connect(contact)
-        try:
-            conn.execute("CREATE TABLE contact (username TEXT,nick_name TEXT,remark TEXT,small_head_url TEXT,big_head_url TEXT)")
-            conn.executemany("INSERT INTO contact VALUES (?,?,?,?,?)", [
-                ("me", "Self", "", "", ""),
-                ("alice", "Alice", "", "https://img.example/small", "https://img.example/big"),
-                ("bob", "Bob", "", "javascript:bad", "http://img.example/bob"),
-                ("newsapp", "newsapp", "", "", ""),
-                ("brandsessionholder", "", "", "", ""),
-            ])
-            conn.commit()
-        finally:
-            conn.close()
-        user = "room@chatroom"
-        table = "Msg_" + hashlib.md5(user.encode()).hexdigest()
-        for index, sender in enumerate(("alice", "bob")):
-            file = workdir / f"message__message_{index}.db"
-            conn = sqlite3.connect(file)
-            try:
-                conn.execute("CREATE TABLE Name2Id (user_name TEXT)")
-                conn.execute("INSERT INTO Name2Id(rowid,user_name) VALUES (3,?)", (sender,))
-                if index == 0:
-                    conn.execute("INSERT INTO Name2Id(rowid,user_name) VALUES (2,'bob')")
-                else:
-                    conn.execute("INSERT INTO Name2Id(rowid,user_name) VALUES (4,'me')")
-                conn.execute(f"CREATE TABLE {table} (local_id INT,local_type INT,real_sender_id INT,create_time INT,message_content BLOB,compress_content BLOB,server_id INT,sort_seq INT)")
-                conn.execute(f"INSERT INTO {table} VALUES (1,1,3,1000,?,?,?,7)", (b"", f"synthetic {index}".encode(), index + 1))
-                if index == 0:
-                    conn.execute(f"INSERT INTO {table} VALUES (2,1,2,1001,'synthetic sender two',NULL,3,8)")
-                    conn.execute(f"INSERT INTO {table} VALUES (3,1,3,1001,'synthetic same sequence',NULL,5,8)")
-                    conn.execute(f"INSERT INTO {table} VALUES (4,1,3,1001,'synthetic system',NULL,6,8)")
-                else:
-                    conn.execute(f"INSERT INTO {table} VALUES (2,1,4,1002,'synthetic self',NULL,4,9)")
-                conn.commit()
-            finally:
-                conn.close()
-
-        class FakeDB:
-            account = "account-a"
-            wxid = "me"
-            _db_files = [("contact", "contact.db", None)]
-
-            def __init__(self):
-                self.workdir = str(workdir)
-
-            def _open(self, rel):
-                return sqlite3.connect(contact)
-
-            def get_self_info(self):
-                return {"username": "me"}
-
-            def _msg_conns(self, username):
-                return [(sqlite3.connect(workdir / f"message__message_{index}.db"), table) for index in range(2)]
-
-            def _msg_type_name(self, _type):
-                return "文本"
-
-            def _friendly_content(self, content, _type):
-                return content.decode()
-
-        source = WeChatSource(lambda: FakeDB(), lambda _kind, content: ("system", "") if content == "synthetic system" else ("text", content))
-        messages = source.messages(user, 6)
-        self.assertEqual([item["senderId"] for item in messages], ["alice", "bob", "bob", "alice", "me"])
-        self.assertEqual([item["side"] for item in messages], ["other", "other", "other", "other", "self"])
-        self.assertEqual([item["text"] for item in messages][:2], ["synthetic 0", "synthetic 1"])
-        self.assertEqual(len({item["id"] for item in messages}), 5)
-        self.assertEqual([item["_sort"][2] for item in messages if item["_sort"][0] == 8], [2, 3])
-        self.assertEqual([item["_sort"][2] for item in source.messages(user, 3)], [3, 2])
-        self.assertEqual([item["_sort"][2] for item in source.messages(user, 2)], [2])
-        result_store = ResultStore(workdir / "synthetic-results.sqlite3")
-        for message in reversed(messages):
-            result_store.save("account-a", user, "synthetic-version", message, {"state": "done"})
-        self.assertEqual([item[0] for item in result_store.items("account-a", user, "synthetic-version")],
-                         [message["id"] for message in messages])
-        self.assertEqual(source.stats(user, "bob")[:2], (2, 2))
-        self.assertEqual(source.stats(user, "me")[:2], (1, 1))
-        self.assertEqual(source.contact("alice")["avatarCandidates"],
-                         ["https://img.example/small", "https://img.example/big"])
-        self.assertEqual(source.contact("bob")["avatarCandidates"], ["http://img.example/bob"])
-        self.assertEqual(source.contact("filehelper")["name"], "文件传输助手")
-        self.assertEqual(source.contact("newsapp")["name"], "腾讯新闻")
-        self.assertEqual(source.contact("brandsessionholder")["name"], "公众号消息")
-        with closing(sqlite3.connect(contact)) as conn, conn:
-            conn.execute("UPDATE contact SET remark='实际备注' WHERE username='newsapp'")
-        self.assertEqual(source.contact("newsapp")["name"], "实际备注")
-        self.assertEqual(messages[0]["senderAvatarCandidates"], source.contact("alice")["avatarCandidates"])
-        self.assertEqual(avatar_candidates("file:///bad", "https://img.example/ok", "https://img.example/ok"),
-                         ["https://img.example/ok"])
-        highwater, cursor, paged = source.history_highwater(user), None, []
-        while True:
-            page, cursor = source.history_page(user, highwater, cursor, page_size=2)
-            if cursor is None:
-                break
-            paged.extend(page)
-        self.assertEqual([item["id"] for item in paged], [item["id"] for item in messages])
-
 
 class ForecastTests(unittest.TestCase):
     def setUp(self):

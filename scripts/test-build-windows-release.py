@@ -23,16 +23,16 @@ SPEC.loader.exec_module(builder)
 
 class BuildReleaseTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="wechatvibe-build-zip-test-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="qqvibe-build-zip-test-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.source = self.root / "win-unpacked"
         self.node = shutil.which("node")
         if not self.node:
             self.skipTest("Node.js is unavailable")
-        self.add_file("WechatVibe.exe", b"MZsynthetic")
+        self.add_file("QQVibe.exe", b"MZsynthetic")
         self.add_file("resources/client/package.json", json.dumps({
-            "name": "wechatvibe-runtime", "version": "1.0.2",
+            "name": "qqvibe-runtime", "version": "1.0.2",
         }).encode("utf-8"))
         self.asar_source = self.root / "asar-source"
         for name in builder.ASAR_SCRIPTS:
@@ -58,7 +58,7 @@ class BuildReleaseTests(unittest.TestCase):
         target.write_bytes(payload)
         return target
 
-    def make_asar(self, *, name="wechatvibe", main="scripts/desktop-main.cjs", version="1.0.2"):
+    def make_asar(self, *, name="qqvibe", main="scripts/desktop-main.cjs", version="1.0.2"):
         (self.asar_source / "package.json").write_text(json.dumps({
             "name": name, "main": main, "version": version,
         }), encoding="utf-8")
@@ -70,10 +70,10 @@ class BuildReleaseTests(unittest.TestCase):
                        check=True, capture_output=True, text=True)
 
     def test_build_is_deterministic_and_extractable(self):
-        self.add_file("resources/client/chatui/assets/wechatvibe-icon.png", b"synthetic image")
+        self.add_file("resources/client/chatui/assets/qqvibe-icon.png", b"synthetic image")
         first = builder.build_release(self.source, self.root / "first", "1.0.2")
         second = builder.build_release(self.source, self.root / "second", "1.0.2")
-        self.assertEqual(first.name, "WechatVibe-1.0.2-windows-x64.zip")
+        self.assertEqual(first.name, "QQVibe-1.0.2-windows-x64.zip")
         self.assertEqual(first.read_bytes(), second.read_bytes())
         with zipfile.ZipFile(first) as archive:
             names = archive.namelist()
@@ -91,7 +91,7 @@ class BuildReleaseTests(unittest.TestCase):
     def test_full_variant_has_distinct_name_and_includes_model(self):
         archive_path = builder.build_release(self.source, self.root / "full", "1.0.2",
                                              with_model=True)
-        self.assertEqual(archive_path.name, "WechatVibe-1.0.2-windows-x64-full.zip")
+        self.assertEqual(archive_path.name, "QQVibe-1.0.2-windows-x64-full.zip")
         with zipfile.ZipFile(archive_path) as archive:
             self.assertEqual(archive.read(
                 "win-unpacked/resources/client/.models/laya/model.onnx"), b"synthetic model")
@@ -212,7 +212,7 @@ class BuildReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "compressed archive"):
                 builder.build_release(self.source, self.root / "compressed", "1.0.2")
         self.assertEqual(list((self.root / "compressed").iterdir()), [])
-        target = self.root / "existing" / "WechatVibe-1.0.2-windows-x64.zip"
+        target = self.root / "existing" / "QQVibe-1.0.2-windows-x64.zip"
         target.parent.mkdir()
         target.write_bytes(b"keep")
         with self.assertRaises(FileExistsError):

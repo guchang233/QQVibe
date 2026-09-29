@@ -90,7 +90,7 @@ def connection_values(request, require_model=False):
 def _dpapi_protect(value):
     import win32crypt
 
-    return win32crypt.CryptProtectData(value.encode("utf-8"), "WechatVibe API key", None,
+    return win32crypt.CryptProtectData(value.encode("utf-8"), "QQVibe API key", None,
                                        None, None, 0x1)
 
 

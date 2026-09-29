@@ -2,7 +2,7 @@
 
 The legacy per-message results stay in results_v2. This module stores one model
 result per batch and a separate coverage index; it never copies that result into
-per-message rows or reads WeChat/model data itself.
+per-message rows or reads QQ/model data itself.
 """
 from __future__ import annotations
 
@@ -20,7 +20,10 @@ from profile_state import empty_state
 
 BATCH_VERSION = "message-batch-v1"
 QUOTED_BACKFILL_VERSION = "quoted-reply-v1"
-SHARD = re.compile(r"message__message_\d+\.db\Z")
+# QQNT messages carry no shard file, so the QQ source labels every sort key with
+# the constant "qq"; the legacy `message__message_N.db` shard filename is still
+# accepted for stored positions written by earlier builds.
+SHARD = re.compile(r"(?:qq|message__message_\d+\.db)\Z")
 AXES = ("EI", "SN", "TF", "JP")
 
 

@@ -239,22 +239,22 @@ class ForecastRequestError(Exception):
 
 
 class AccountUnavailableError(RuntimeError):
-    """The unique live WeChat account or its cache-only database is not ready."""
+    """The unique live QQ account or its cache-only database is not ready."""
 
     def __init__(self):
-        super().__init__("当前微信账号未就绪")
+        super().__init__("当前QQ账号未就绪")
 
 
 class AccountChangedError(RuntimeError):
     """A request or queued analysis outlived the account that supplied its input."""
 
     def __init__(self):
-        super().__init__("当前微信账号已变化")
+        super().__init__("当前QQ账号已变化")
 
 
 class MessagesUnavailableError(RuntimeError):
     def __init__(self):
-        super().__init__("当前微信消息尚未就绪")
+        super().__init__("当前QQ消息尚未就绪")
 
 
 def validate_personality_evidence(evidence):

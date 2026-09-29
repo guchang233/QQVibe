@@ -23,7 +23,7 @@ class ModelPreserveTests(unittest.TestCase):
         node = shutil.which("node")
         if not node:
             self.skipTest("Node.js is unavailable")
-        with tempfile.TemporaryDirectory(prefix="wechatvibe-model-preserve-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="qqvibe-model-preserve-") as temporary:
             root = Path(temporary)
             old = root / "old"
             candidate = root / "candidate"

@@ -148,7 +148,7 @@ test("final update unlocks the UI after commit while account validation can cont
   const unlockStart = source.indexOf("function unlockStartupUi()");
   const unlockEnd = source.indexOf("function completeStartup()", unlockStart);
   const bootStart = source.indexOf("const updateValidationMode =");
-  const bootEnd = source.indexOf('window.addEventListener("wechatvibe-service-restored"', bootStart);
+  const bootEnd = source.indexOf('window.addEventListener("qqvibe-service-restored"', bootStart);
   assert.ok(unlockStart >= 0 && unlockEnd > unlockStart && bootStart >= 0 && bootEnd > bootStart);
   const nodes = new Map();
   const byId = id => {

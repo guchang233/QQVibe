@@ -1,4 +1,4 @@
-"""Extract a verified WechatVibe update ZIP into a new, bounded candidate tree.
+"""Extract a verified QQVibe update ZIP into a new, bounded candidate tree.
 
 The caller verifies the signed manifest and archive SHA-256 first. This helper
 enforces filesystem safety before it writes any member of the archive.
@@ -24,7 +24,7 @@ BAD_WINDOWS_CHARS = re.compile(r'[<>:"|?*\\\x00-\x1f]')
 RESERVED_WINDOWS_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
                           *(f"LPT{i}" for i in range(1, 10))}
 REQUIRED_FILES = (
-    "WechatVibe.exe",
+    "QQVibe.exe",
     "resources/app.asar",
     "resources/client/package.json",
     "resources/client/runtime/python/python.exe",
@@ -147,7 +147,7 @@ def extract(archive_path: Path, work_dir: Path, expected_version: str) -> Path:
             getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
         ):
             raise ValueError("candidate required file unsafe: " + relative)
-    executable = candidate / "WechatVibe.exe"
+    executable = candidate / "QQVibe.exe"
     metadata = candidate / "resources" / "client" / "package.json"
     if not executable.is_file() or executable.is_symlink() or executable.stat().st_size == 0:
         raise ValueError("candidate executable missing")
@@ -157,7 +157,7 @@ def extract(archive_path: Path, work_dir: Path, expected_version: str) -> Path:
     if not metadata.is_file() or metadata.is_symlink() or metadata.stat().st_size > 64 * 1024:
         raise ValueError("candidate package metadata missing")
     package = json.loads(metadata.read_text(encoding="utf-8"))
-    if package.get("name") != "wechatvibe-runtime" or package.get("version") != expected_version:
+    if package.get("name") != "qqvibe-runtime" or package.get("version") != expected_version:
         raise ValueError("candidate package version mismatch")
     return candidate
 

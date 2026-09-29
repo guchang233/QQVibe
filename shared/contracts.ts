@@ -98,12 +98,12 @@ export type AnalysisRequest = {
 };
 
 /* ------------------------------------------------------------------ *
- * Native WeChat integration (stage 1: additive contract only)
+ * Native QQ integration (stage 1: additive contract only)
  * ------------------------------------------------------------------ */
 
-export type NativeWechatState = 'disconnected'|'checking'|'wechat_closed'|'not_logged_in'|'select_account'|'unlocking'|'ready'|'paused'|'permission_denied'|'unsupported'|'error';
+export type NativeQqState = 'disconnected'|'checking'|'qq_closed'|'not_logged_in'|'select_account'|'unlocking'|'ready'|'paused'|'permission_denied'|'unsupported'|'error';
 export type NativeAccount = {id:string; name:string; state:'available'|'locked'|'connected'|'error'; message?:string};
-export type NativeWechatStatus = {state:NativeWechatState; message:string; accounts:NativeAccount[]; accountId?:string};
+export type NativeQqStatus = {state:NativeQqState; message:string; accounts:NativeAccount[]; accountId?:string};
 export type NativeContactKind = 'friend'|'group'|'service'|'unknown';
 export type NativeHistoryState = 'queued'|'running'|'paused'|'completed'|'partial'|'failed';
 export type NativeTrendPoint = {time:number; affinity:number; analyzed:number};
@@ -112,7 +112,7 @@ export type NativeHistoryJob = {id:string; accountId:string; contactId:string; c
 export type NativeOverlayRect = {x:number;y:number;width:number;height:number};
 export type NativeOverlayAnchor = {messageId:string; bubble:NativeOverlayRect; annotationSlot:NativeOverlayRect};
 export type NativeViewport = {visible:boolean; foreground:boolean; observedAt:number; validUntil:number; revision:number; width:number; height:number; headerSlot?:NativeOverlayRect; bottomSlot?:NativeOverlayRect; paneSlot?:NativeOverlayRect; anchors:NativeOverlayAnchor[]};
-export type NativeWechatSnapshot = {status:NativeWechatStatus; contact:NativeContact|null; messages:Message[]; result:AnalysisResult|null; analyzing:boolean; error?:string; revision:number; viewport:NativeViewport; jobs:NativeHistoryJob[]};
+export type NativeQqSnapshot = {status:NativeQqStatus; contact:NativeContact|null; messages:Message[]; result:AnalysisResult|null; analyzing:boolean; error?:string; revision:number; viewport:NativeViewport; jobs:NativeHistoryJob[]};
 export type NativeConnectRequest = {accountId?:string};
 export type NativeSelectRequest = {accountId:string; contactId:string};
 export type NativeHistoryStartRequest = {accountId:string; contactIds?:string[]};
@@ -132,18 +132,18 @@ export interface DesktopBridge {
   minimize(): void;
   close(): void;
 
-  // --- Native WeChat (stage 1: contract only; backend not implemented yet) ---
-  nativeWechatStatus(): Promise<NativeWechatSnapshot>;
-  /** Production WeChat client module status (module mode only). */
+  // --- Native QQ (stage 1: contract only; backend not implemented yet) ---
+  nativeQqStatus(): Promise<NativeQqSnapshot>;
+  /** Production QQ client module status (module mode only). */
   nativeModuleStatus(): Promise<NativeModuleStatus>;
   /** Ask the module to stop and restore the gate; resolves with the post-stop status. */
   nativeModuleStop(): Promise<NativeModuleStatus>;
-  nativeWechatConnect(request?: NativeConnectRequest): Promise<NativeWechatSnapshot>;
-  nativeWechatListContacts(accountId?: string): Promise<NativeContact[]>;
-  nativeWechatSelectContact(request: NativeSelectRequest): Promise<NativeWechatSnapshot>;
-  nativeWechatPause(paused: boolean): Promise<NativeWechatSnapshot>;
-  nativeWechatDisconnect(): Promise<NativeWechatSnapshot>;
-  onNativeWechatSnapshot(callback: (snapshot: NativeWechatSnapshot) => void): () => void;
+  nativeQqConnect(request?: NativeConnectRequest): Promise<NativeQqSnapshot>;
+  nativeQqListContacts(accountId?: string): Promise<NativeContact[]>;
+  nativeQqSelectContact(request: NativeSelectRequest): Promise<NativeQqSnapshot>;
+  nativeQqPause(paused: boolean): Promise<NativeQqSnapshot>;
+  nativeQqDisconnect(): Promise<NativeQqSnapshot>;
+  onNativeQqSnapshot(callback: (snapshot: NativeQqSnapshot) => void): () => void;
   nativeHistoryStart(request: NativeHistoryStartRequest): Promise<NativeHistoryJob[]>;
   nativeHistoryPause(jobId: string): Promise<NativeHistoryJob[]>;
   nativeHistoryResume(jobId: string): Promise<NativeHistoryJob[]>;
@@ -154,7 +154,7 @@ export interface DesktopBridge {
  * IPC channel names (internal, shared by main + preload)
  * ------------------------------------------------------------------ */
 
-/** Honest capability + running status of the production WeChat client module. */
+/** Honest capability + running status of the production QQ client module. */
 export interface NativeModuleStatus {
   running: boolean;
   state: string;
@@ -166,7 +166,7 @@ export interface NativeModuleStatus {
     qtRowHeight: boolean;
     fullHistory: boolean;
   };
-  /** True when the app is running the WeChat client module entry (--wechat-module). */
+  /** True when the app is running the QQ client module entry (--qq-module). */
   mode: boolean;
   sampled: number;
   analyzed: number;
@@ -185,13 +185,13 @@ export const IPC_CHANNELS = {
   setAlwaysOnTop: "desktop:setAlwaysOnTop",
   minimize: "desktop:minimize",
   close: "desktop:close",
-  nativeWechatStatus: "desktop:nativeWechatStatus",
-  nativeWechatConnect: "desktop:nativeWechatConnect",
-  nativeWechatListContacts: "desktop:nativeWechatListContacts",
-  nativeWechatSelectContact: "desktop:nativeWechatSelectContact",
-  nativeWechatPause: "desktop:nativeWechatPause",
-  nativeWechatDisconnect: "desktop:nativeWechatDisconnect",
-  nativeWechatSnapshot: "desktop:nativeWechatSnapshot",
+  nativeQqStatus: "desktop:nativeQqStatus",
+  nativeQqConnect: "desktop:nativeQqConnect",
+  nativeQqListContacts: "desktop:nativeQqListContacts",
+  nativeQqSelectContact: "desktop:nativeQqSelectContact",
+  nativeQqPause: "desktop:nativeQqPause",
+  nativeQqDisconnect: "desktop:nativeQqDisconnect",
+  nativeQqSnapshot: "desktop:nativeQqSnapshot",
   nativeHistoryStart: "desktop:nativeHistoryStart",
   nativeHistoryPause: "desktop:nativeHistoryPause",
   nativeHistoryResume: "desktop:nativeHistoryResume",
@@ -326,7 +326,7 @@ export function assertAnalysisRequest(value: unknown): AnalysisRequest {
 }
 
 /* ------------------------------------------------------------------ *
- * Native WeChat validation (stage 1)
+ * Native QQ validation (stage 1)
  *
  * Renderer-supplied ids are opaque ASCII tokens; never trust renderer data. These are additive and
  * leave every original validator untouched.
@@ -357,7 +357,7 @@ export function assertNativeId(value: unknown, field: string): string {
   return value;
 }
 
-/** `nativeWechatConnect` accepts an optional request (undefined/null allowed). */
+/** `nativeQqConnect` accepts an optional request (undefined/null allowed). */
 export function assertNativeConnectRequest(value: unknown): NativeConnectRequest {
   if (value === undefined || value === null) return {};
   if (typeof value !== "object" || Array.isArray(value)) {
@@ -368,7 +368,7 @@ export function assertNativeConnectRequest(value: unknown): NativeConnectRequest
   return { accountId: assertNativeId(request.accountId, "accountId") };
 }
 
-/** `nativeWechatSelectContact` requires both accountId and contactId. */
+/** `nativeQqSelectContact` requires both accountId and contactId. */
 export function assertNativeSelectRequest(value: unknown): NativeSelectRequest {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new ContractError("选择联系人请求必须是对象");
@@ -413,7 +413,7 @@ export function assertNativeJobId(value: unknown): string {
   return assertNativeId(value, "jobId");
 }
 
-/** `nativeWechatPause` boolean. */
+/** `nativeQqPause` boolean. */
 export function assertNativePause(value: unknown): boolean {
   return assertBoolean(value, "paused");
 }

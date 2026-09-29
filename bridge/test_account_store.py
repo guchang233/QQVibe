@@ -171,7 +171,7 @@ class AccountManagementTests(unittest.TestCase):
         stable_b.write_text('synthetic stable key')
         stable_a = self.stable_keys / (a + '.json')
         stable_a.write_text('other account key')
-        source = self.root / 'wechat-original.db'
+        source = self.root / 'qq-original.db'
         source.write_bytes(b'synthetic original')
         sidecar = Path(str(result_b) + '-journal')
         sidecar.write_bytes(b'synthetic rollback sidecar')
@@ -207,7 +207,7 @@ class AccountManagementTests(unittest.TestCase):
         snapshot_a.write_bytes(b'current derived snapshot')
         stable_a = self.stable_keys / (a + '.json')
         stable_a.write_text('current cached key')
-        original = self.root / 'wechat-original.db'
+        original = self.root / 'qq-original.db'
         original.write_bytes(b'original untouched')
         before_b = b_path.read_bytes()
         entered = threading.Event()
@@ -253,7 +253,7 @@ class AccountManagementTests(unittest.TestCase):
         self.assertEqual(self.backend.shutdown_calls, [])
         self.assertFalse(self.api.no_recovery_marker.exists())
 
-    def test_real_backend_drains_request_and_snapshot_writer_before_current_delete(self):
+    def test_real_backend_drains_request_before_current_delete(self):
         account = 'wxid_a_abcd'
         self.source.current = account
         self.source.closed = False
@@ -266,13 +266,8 @@ class AccountManagementTests(unittest.TestCase):
         api = AccountAPI(backend, self.data, self.cache, self.stable_keys)
         api.observe({'account': account, 'self': {'username': 'wxid_a', 'name': 'Fixture'}})
         result = self.data / (account_id(account) + '.sqlite3')
-        snapshot = self.cache / account / 'message__message_0.db'
-        snapshot.parent.mkdir(exist_ok=True)
-        snapshot.write_bytes(b'synthetic snapshot')
         lease_entered = threading.Event()
         release_lease = threading.Event()
-        writer_waiting = threading.Event()
-        release_writer = threading.Event()
         outcomes = []
 
         def held_request():
@@ -280,33 +275,22 @@ class AccountManagementTests(unittest.TestCase):
                 lease_entered.set()
                 release_lease.wait(5)
 
-        def wait_writer(_workdir):
-            writer_waiting.set()
-            return release_writer.wait(5)
-
         reader = threading.Thread(target=held_request)
         reader.start()
         self.assertTrue(lease_entered.wait(5))
-        with patch('account_api.wait_forget_account', side_effect=wait_writer):
-            deleter = threading.Thread(target=lambda: outcomes.append(api.delete(account_id(account))))
-            deleter.start()
-            try:
-                deadline = time.monotonic() + 5
-                while not backend.closing and time.monotonic() < deadline:
-                    time.sleep(0.01)
-                self.assertTrue(backend.closing)
-                self.assertTrue(result.exists())
-                self.assertTrue(snapshot.exists())
-                self.assertFalse(writer_waiting.is_set())
-                release_lease.set()
-                self.assertTrue(writer_waiting.wait(5))
-                self.assertTrue(result.exists())
-                self.assertTrue(snapshot.exists())
-            finally:
-                release_lease.set()
-                release_writer.set()
-                reader.join(5)
-                deleter.join(5)
+        deleter = threading.Thread(target=lambda: outcomes.append(api.delete(account_id(account))))
+        deleter.start()
+        try:
+            deadline = time.monotonic() + 5
+            while not backend.closing and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(backend.closing)
+            self.assertTrue(result.exists())
+            release_lease.set()
+        finally:
+            release_lease.set()
+            reader.join(5)
+            deleter.join(5)
         self.assertFalse(reader.is_alive())
         self.assertFalse(deleter.is_alive())
         self.assertEqual(outcomes, [{'deleted': account_id(account), 'current': True, 'exitApp': True}])
@@ -314,7 +298,6 @@ class AccountManagementTests(unittest.TestCase):
         self.assertTrue(analyzer.closed)
         self.assertFalse(backend.worker_thread.is_alive())
         self.assertFalse(result.exists())
-        self.assertFalse(snapshot.exists())
 
     def test_failed_current_clear_resumes_bridge_without_claiming_file_rollback(self):
         a, b = 'wxid_a_abcd', 'wxid_b_efgh'
@@ -329,7 +312,7 @@ class AccountManagementTests(unittest.TestCase):
         result_a = self.data / (account_id(a) + '.sqlite3')
         result_b = self.data / (account_id(b) + '.sqlite3')
         before_b = result_b.read_bytes()
-        original = self.root / 'wechat-original.db'
+        original = self.root / 'qq-original.db'
         original.write_bytes(b'synthetic original')
 
         def partial_failure(*_args, **_kwargs):

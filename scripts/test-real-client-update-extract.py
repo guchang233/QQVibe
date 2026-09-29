@@ -19,10 +19,10 @@ SPEC.loader.exec_module(extractor)
 def standard_members():
     members = []
     for relative in extractor.REQUIRED_FILES:
-        if relative == "WechatVibe.exe":
+        if relative == "QQVibe.exe":
             payload = b"MZsynthetic"
         elif relative == "resources/client/package.json":
-            payload = json.dumps({"name": "wechatvibe-runtime", "version": "1.0.2"}).encode()
+            payload = json.dumps({"name": "qqvibe-runtime", "version": "1.0.2"}).encode()
         else:
             payload = b"synthetic"
         members.append(("win-unpacked/" + relative, payload))
@@ -39,19 +39,19 @@ class ExtractTests(unittest.TestCase):
         return archive
 
     def reject(self, extra=(), replace=None):
-        with tempfile.TemporaryDirectory(prefix="wechatvibe-extract-test-") as folder:
+        with tempfile.TemporaryDirectory(prefix="qqvibe-extract-test-") as folder:
             work = Path(folder)
             archive = self.make_archive(work, extra, replace)
             with self.assertRaises(ValueError):
                 extractor.extract(archive, work, "1.0.2")
 
     def test_valid_candidate(self):
-        with tempfile.TemporaryDirectory(prefix="wechatvibe-extract-test-") as folder:
+        with tempfile.TemporaryDirectory(prefix="qqvibe-extract-test-") as folder:
             work = Path(folder)
             archive = self.make_archive(work)
             candidate = extractor.extract(archive, work, "1.0.2")
             self.assertEqual(candidate, work / "win-unpacked")
-            self.assertEqual((candidate / "WechatVibe.exe").read_bytes(), b"MZsynthetic")
+            self.assertEqual((candidate / "QQVibe.exe").read_bytes(), b"MZsynthetic")
             self.assertFalse((candidate / ".local").exists())
 
     def test_unsafe_paths(self):
@@ -60,7 +60,7 @@ class ExtractTests(unittest.TestCase):
             "win-unpacked/C:/drive.txt", "win-unpacked/file:stream",
             "win-unpacked/.local/state.db",
             "win-unpacked/CON.txt", "win-unpacked/trailing. ",
-            "WechatVibe-1.0.2/WechatVibe.exe",
+            "QQVibe-1.0.2/QQVibe.exe",
         ):
             with self.subTest(name=name):
                 self.reject(extra=[(name, b"bad")])
@@ -69,8 +69,8 @@ class ExtractTests(unittest.TestCase):
             extractor._parts("win-unpacked\\backslash.txt", False)
 
     def test_duplicates_and_file_parent(self):
-        self.reject(extra=[("win-unpacked/wechatvibe.EXE", b"collision")])
-        self.reject(extra=[("win-unpacked/WechatVibe.exe/subfile", b"collision")])
+        self.reject(extra=[("win-unpacked/qqvibe.EXE", b"collision")])
+        self.reject(extra=[("win-unpacked/QQVibe.exe/subfile", b"collision")])
 
     def test_symlink_and_reparse(self):
         link = zipfile.ZipInfo("win-unpacked/link")
@@ -84,7 +84,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_bomb_ratio_and_version(self):
         self.reject(extra=[("win-unpacked/zeros", b"\x00" * (2 * 1024 * 1024))])
-        wrong = [(name, json.dumps({"name": "wechatvibe-runtime", "version": "1.0.3"}).encode()
+        wrong = [(name, json.dumps({"name": "qqvibe-runtime", "version": "1.0.3"}).encode()
                   if name.endswith("/package.json") else payload)
                  for name, payload in standard_members()]
         self.reject(replace=wrong)

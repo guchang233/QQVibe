@@ -1,0 +1,9 @@
+{
+  "name": "qqnt-reader",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "In-process QQNT read-only chat reader injected into QQ (NapCat-derived, no NapCat runtime dependency)",
+  "main": "src/index.js",
+  "license": "Apache-2.0"
+}

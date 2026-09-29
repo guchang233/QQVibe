@@ -1,6 +1,6 @@
-# WechatVibe 第三方来源与许可证
+# QQVibe 第三方来源与许可证
 
-本项目本体采用 [Apache-2.0](LICENSE)。WechatVibe 是独立项目，与微信、腾讯、Laya 或以下上游项目不存在官方隶属或背书关系。本文件说明这份源码和构建后的便携目录直接使用的组件；传递依赖仍以各自附带的许可证为准。
+本项目本体采用 [Apache-2.0](LICENSE)。QQVibe 是独立项目，与QQ、腾讯、Laya 或以下上游项目不存在官方隶属或背书关系。本文件说明这份源码和构建后的便携目录直接使用的组件；传递依赖仍以各自附带的许可证为准。
 
 ## 内嵌 Laya 源码
 
@@ -27,11 +27,10 @@
 | TypeScript / `@types/node` | 7.0.2 / 26.6.2 | Apache-2.0 / MIT；仅开发期使用，安装包内许可证 |
 | Node.js | 24.11.1 | Node.js 及其第三方条款；源码保留 [完整许可证](licenses/node-LICENSE-24.11.1.txt)，便携版复制到 `resources/client/runtime/node/LICENSE` |
 | Python | 3.14 | PSF License；便携版复制基础运行时的 `LICENSE.txt` |
-| `wechatauto-replica` | 1.2.2.6 | Apache-2.0；安装发行包 `wechatauto_replica-1.2.2.6.dist-info/licenses/LICENSE` |
 
-完整 Python 版本集合见 [python-requirements.lock.txt](python-requirements.lock.txt)，Node 直接及传递版本见 [package-lock.json](package-lock.json)。读取层的来源说明见 [native-reader/THIRD_PARTY_NOTICES.md](native-reader/THIRD_PARTY_NOTICES.md)。便携构建只复制所需的 Python 包与 Node 包闭包，并保留包内实际附带的许可文件；它不复制整个开发环境。
+完整 Python 版本集合见 [python-requirements.lock.txt](python-requirements.lock.txt)，Node 直接及传递版本见 [package-lock.json](package-lock.json)。便携构建只复制所需的 Python 包与 Node 包闭包，并保留包内实际附带的许可文件；它不复制整个开发环境。
 
-`wechatauto-replica` 声明的 `winsdk`、`imageio-ffmpeg`、`pyautogui` 在已验证的只读运行集合中未安装，分别属于其可选 GUI、OCR 或媒体路径。这里不声称这些路径可用。客户端不会发送微信消息。默认 Laya 模式在本机分析；用户主动启用 API 模式后，消息分析所需的聊天片段会发送到所配置的服务地址。
+QQ 聊天记录由注入到 QQNT 主进程的 `qqnt/` 读取器只读获取，该读取器为本项目实现，直接调用 QQ 自身的内核服务，不引入第三方 QQ 读取库或机器人框架。客户端不会发送QQ消息。默认 Laya 模式在本机分析；用户主动启用 API 模式后，消息分析所需的聊天片段会发送到所配置的服务地址。
 
 ## README 演示头像
 

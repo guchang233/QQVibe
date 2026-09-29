@@ -21,13 +21,13 @@ from packaging.requirements import Requirement
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGE = ROOT / ".local" / "real-client-package" / "client"
-PYTHON_SOURCE = os.environ.get("WECHATVIBE_BUILD_PYTHON")
+PYTHON_SOURCE = os.environ.get("QQVIBE_BUILD_PYTHON")
 PYTHON_ROOT = (Path(PYTHON_SOURCE).resolve().parent if PYTHON_SOURCE
                else Path(sys.base_prefix).resolve())
 PYTHON_SITE = Path(sysconfig.get_path("purelib")).resolve()
 NODE_MODULES = ROOT / "node_modules"
 PYTHON_ROOT_PACKAGES = (
-    "wechatauto-replica", "cryptography", "zstandard", "psutil", "jieba",
+    "cryptography", "zstandard", "psutil", "jieba",
     "Pillow", "uiautomation", "pywin32", "pyperclip", "colorama",
     "opencv-python", "numpy", "comtypes", "setuptools", "tzdata", "packaging",
 )
@@ -279,9 +279,9 @@ def verify_staged_sdk_imports() -> None:
 
 
 def stage_node_runtime() -> dict:
-    executable = os.environ.get("WECHATVIBE_BUILD_NODE") or shutil.which("node")
+    executable = os.environ.get("QQVIBE_BUILD_NODE") or shutil.which("node")
     if not executable:
-        raise RuntimeError("node.exe not found; set WECHATVIBE_BUILD_NODE")
+        raise RuntimeError("node.exe not found; set QQVIBE_BUILD_NODE")
     source = Path(executable).resolve()
     if not source.is_file() or source.name.lower() != "node.exe":
         raise RuntimeError(f"invalid node.exe: {source}")
@@ -293,7 +293,7 @@ def stage_node_runtime() -> dict:
     candidates = [source.parent / "LICENSE", source.parent / "LICENSE.txt",
                   ROOT / "licenses" / f"node-LICENSE-{version.lstrip('v')}.txt",
                   ROOT / ".local" / "real-client-package" / f"node-LICENSE-{version.lstrip('v')}.txt"]
-    override = os.environ.get("WECHATVIBE_NODE_LICENSE")
+    override = os.environ.get("QQVIBE_NODE_LICENSE")
     if override:
         candidates.insert(0, Path(override))
     license_source = next((candidate for candidate in candidates if candidate.is_file()), None)

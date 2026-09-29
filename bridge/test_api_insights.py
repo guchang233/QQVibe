@@ -12,9 +12,10 @@ from unittest.mock import patch
 
 from model_source import LOCAL_SOURCE_ID, ModelSourceStore
 from model_source import ModelSourceUnavailable
-from real_backend import (Backend, ResultStore, WeChatSource, api_portrait_scope, api_portrait_wire_chars,
+from real_backend import (Backend, ResultStore, QQSource, api_portrait_scope, api_portrait_wire_chars,
                           api_portrait_resume_anchor, api_portrait_tail_hashes,
                           empty_api_portrait, empty_profile_state, valid_api_portrait)
+import qq_client
 
 
 class Source:
@@ -1410,86 +1411,61 @@ class ApiInsightTests(unittest.TestCase):
 
 
 class ProfileOverviewCacheTests(unittest.TestCase):
+    class Client:
+        """Minimal injected-reader stub exposing only the count surface."""
+
+        def __init__(self):
+            self.account = "synthetic-account"
+            self.scans = 0
+            self.counts = {"member-a": 5}
+            self.total = 5
+
+        def self_info(self):
+            return {"account": self.account, "uid": self.account, "uin": "10001",
+                    "nickname": "Self"}
+
+        def contacts(self):
+            return {"friends": [], "groups": []}
+
+        def senders(self, _peer, is_group=False):
+            return []
+
+        def profile_metadata(self, _peer, member=None, is_group=False):
+            self.scans += 1
+            return {"counts": {sender: {"count": amount, "text": amount}
+                               for sender, amount in self.counts.items()},
+                    "total": self.total, "count": self.total, "textCount": self.total}
+
+        def reset(self):
+            pass
+
     def test_new_highwater_refreshes_members_and_counts(self):
-        members = [(1, "old-member")]
-        counts = [(1, 5)]
-        class Conn:
-            def execute(self, sql):
-                return counts if "GROUP BY real_sender_id" in sql else members
-            def close(self):
-                pass
-        class Reader:
-            account = "synthetic-account"
-            messages_ready = True
-            def _msg_conns(self, _user):
-                return [(Conn(), "Msg_" + "a" * 32)]
-        source = WeChatSource(factory=object())
-        source._contacts = lambda _db: {}
-        source.db = Reader()
-        first = source.profile_overview("room@chatroom", highwater=(10, "shard", 1))
+        client = self.Client()
+        source = QQSource(client=client)
+        first = source.profile_overview("room@chatroom", highwater=(10, "qq", 1))
         self.assertEqual(first["count"], 5)
-        members.append((2, "new-member"))
-        counts.append((2, 1))
-        second = source.profile_overview("room@chatroom", "new-member", highwater=(11, "shard", 2))
+        client.counts["new-member"] = 1
+        client.total = 6
+        second = source.profile_overview("room@chatroom", "new-member", highwater=(11, "qq", 2))
         self.assertEqual(second["count"], 1)
         self.assertIn("new-member", [item["id"] for item in second["members"]])
 
-    def test_counts_do_not_cross_account_roots_with_shared_workdir(self):
-        scans = []
-        class Conn:
-            def execute(self, sql):
-                if "GROUP BY real_sender_id" in sql:
-                    scans.append(1)
-                    return [(1, 5)]
-                return [(1, "friend")]
-            def close(self):
-                pass
-        class Reader:
-            account = "synthetic-account"
-            messages_ready = True
-            workdir = "synthetic-shared-workdir"
-            def __init__(self, account_dir):
-                self.account_dir = str(account_dir)
-            def _msg_conns(self, _user):
-                return [(Conn(), "Msg_" + "a" * 32)]
-        source = WeChatSource(factory=object())
-        source._contacts = lambda _db: {}
-        source.db = Reader("synthetic-root-one")
-        with patch("wechat_source.contact_display", return_value={"name": "synthetic"}):
-            source.profile_overview("room@chatroom")
-            source._release_db()
-            source.db = Reader("synthetic-root-two")
-            source.profile_overview("room@chatroom")
-        self.assertEqual(len(scans), 2)
+    def test_counts_are_reused_within_one_reader_revision(self):
+        client = self.Client()
+        source = QQSource(client=client)
+        source.profile_overview("room@chatroom", highwater=(10, "qq", 1))
+        source.profile_overview("room@chatroom", highwater=(10, "qq", 1))
+        self.assertEqual(client.scans, 1)
 
     def test_group_counts_survive_same_account_reader_refresh_but_not_account_forget(self):
-        scans = []
-        class Conn:
-            def execute(self, sql):
-                if "GROUP BY real_sender_id" in sql:
-                    scans.append(1)
-                    return [(1, 5)]
-                return [(1, "friend")]
-            def close(self):
-                pass
-        class Reader:
-            account = "synthetic-account"
-            messages_ready = True
-            def _msg_conns(self, _user):
-                return [(Conn(), "Msg_" + "a" * 32)]
-        source = WeChatSource(factory=object())
-        source._contacts = lambda _db: {}
-        source.db = Reader()
-        with patch("wechat_source.contact_display", return_value={"name": "synthetic"}):
-            first = source.profile_overview("room@chatroom", highwater=(10, "shard", 1))
-            source._release_db()
-            source.db = Reader()
-            second = source.profile_overview("room@chatroom", highwater=(10, "shard", 1))
-            self.assertEqual((first["count"], second["count"], len(scans)), (5, 5, 1))
-            source.forget_account("synthetic-account")
-            source.db = Reader()
-            source.profile_overview("room@chatroom", highwater=(10, "shard", 1))
-            self.assertEqual(len(scans), 2)
+        client = self.Client()
+        source = QQSource(client=client)
+        first = source.profile_overview("room@chatroom", highwater=(10, "qq", 1))
+        second = source.profile_overview("room@chatroom", highwater=(10, "qq", 1))
+        self.assertEqual((first["count"], second["count"], client.scans), (5, 5, 1))
+        source.forget_account("synthetic-account")
+        source.profile_overview("room@chatroom", highwater=(10, "qq", 1))
+        self.assertEqual(client.scans, 2)
 
 
 if __name__ == "__main__":

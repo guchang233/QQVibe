@@ -41,13 +41,13 @@ function sha256File(file) {
 
 async function buildManifest(version, archivePath) {
   if (!stableVersion(version)) throw new Error("stable version required");
-  const archiveName = "WechatVibe-" + version + "-windows-x64.zip";
+  const archiveName = "QQVibe-" + version + "-windows-x64.zip";
   if (path.basename(archivePath) !== archiveName) throw new Error("archive name does not match version");
   const stats = await fs.promises.lstat(archivePath);
   if (!stats.isFile() || stats.isSymbolicLink() || !Number.isSafeInteger(stats.size) ||
       stats.size <= 0 || stats.size > MAX_ARCHIVE_BYTES) throw new Error("archive size or type invalid");
   return {
-    schema: 1, product: "WechatVibe", version, platform: "win32", arch: "x64",
+    schema: 1, product: "QQVibe", version, platform: "win32", arch: "x64",
     layout: "win-unpacked", dataSchema: "real-client-v1",
     archive: { name: archiveName, size: stats.size, sha256: await sha256File(archivePath) },
   };
@@ -55,8 +55,8 @@ async function buildManifest(version, archivePath) {
 
 async function main() {
   const args = parseArguments(process.argv.slice(2));
-  const keyPath = process.env.WECHATVIBE_UPDATE_SIGNING_KEY_FILE;
-  if (!keyPath) throw new Error("WECHATVIBE_UPDATE_SIGNING_KEY_FILE is required");
+  const keyPath = process.env.QQVIBE_UPDATE_SIGNING_KEY_FILE;
+  if (!keyPath) throw new Error("QQVIBE_UPDATE_SIGNING_KEY_FILE is required");
   const outputDir = path.resolve(args["--output-dir"]);
   const archivePath = path.resolve(args["--archive"]);
   if (path.dirname(archivePath) !== outputDir) {

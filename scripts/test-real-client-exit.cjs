@@ -86,7 +86,7 @@ async function startShell(extraEnv = {}, extraArgs = [], monitorDrain, options =
         monitorBridge: () => () => { monitorStops.push(true); return monitorDrain; },
       };
       if (name === "./real-client-update.cjs") return {
-        RELEASES_URL: "https://github.com/tswawa/WechatVibe/releases",
+        RELEASES_URL: "https://github.com/tswawa/QQVibe/releases",
         checkForUpdates: async () => ({ status: "current" }),
       };
       if (name === "./real-client-update-proxy.cjs") return {
@@ -120,7 +120,7 @@ async function startShell(extraEnv = {}, extraArgs = [], monitorDrain, options =
     clearTimeout() {},
     process: {
       platform: "win32", pid: 12345,
-      env: { WECHATVIBE_CLIENT_ROOT: ROOT, WECHATVIBE_INSTANCE_ID: INSTANCE_ID, ...extraEnv },
+      env: { QQVIBE_CLIENT_ROOT: ROOT, QQVIBE_INSTANCE_ID: INSTANCE_ID, ...extraEnv },
       argv: ["electron", "shell", "--client-url", CLIENT_URL, ...extraArgs],
       stdout: { write() {} }, stderr: { write() {} },
     },
@@ -149,7 +149,7 @@ function assertOwnedStop(call) {
   assert.equal(call.options.cwd, ROOT);
   assert.equal(call.options.windowsHide, true);
   assert.equal(call.options.env.CHATUI_PORT, "34567");
-  assert.equal(call.options.env.WECHATVIBE_CLIENT_ROOT, ROOT);
+  assert.equal(call.options.env.QQVIBE_CLIENT_ROOT, ROOT);
 }
 
 async function testNormalQuitWaitsForOwnedBridge() {
@@ -185,14 +185,14 @@ async function testFailedStopShowsErrorAndFinishesQuit() {
     JSON.stringify({ stopped: true }), "");
   await settle();
   assert.equal(shell.dialogs.length, 1, "a failed stop must alert the user");
-  assert.match(shell.dialogs[0].title, /WechatVibe/);
+  assert.match(shell.dialogs[0].title, /QQVibe/);
   assert.match(shell.dialogs[0].message, /后台进程/);
   assert.equal(shell.completedQuits, 1, "the failed stop must still finish quitting");
   assert.equal(shell.stopCalls.length, 1, "failure must not retry an uncontrolled stop");
 }
 
 async function testReadyInitializationFailureStillStopsCreatedBridge() {
-  const shell = await startShell({ WECHATVIBE_BRIDGE_CREATED: "1" }, [], undefined,
+  const shell = await startShell({ QQVIBE_BRIDGE_CREATED: "1" }, [], undefined,
     { readyThrow: true });
   assert.equal(shell.stopCalls.length, 1,
     "a ready-time initialization failure must still stop the bridge created by this launch");
@@ -255,7 +255,7 @@ async function testAbortedHandoffResumesNormalExit() {
 }
 
 async function testValidationSkipsStop() {
-  const shell = await startShell({ WECHATVIBE_UPDATE_VALIDATE: "1" });
+  const shell = await startShell({ QQVIBE_UPDATE_VALIDATE: "1" });
   shell.app.quit();
   await settle();
   assert.equal(shell.stopCalls.length, 0, "validation mode must not stop the live bridge");
@@ -264,8 +264,8 @@ async function testValidationSkipsStop() {
 
 async function testUncommittedFinalUpdateStopsOwnedBridge() {
   const shell = await startShell({
-    WECHATVIBE_UPDATE_FINAL_READY_FILE: path.join(ROOT, "final-ready.json"),
-    WECHATVIBE_UPDATE_FINAL_READY_NONCE: "b".repeat(32),
+    QQVIBE_UPDATE_FINAL_READY_FILE: path.join(ROOT, "final-ready.json"),
+    QQVIBE_UPDATE_FINAL_READY_NONCE: "b".repeat(32),
   });
   shell.app.quit();
   await settle();

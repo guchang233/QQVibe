@@ -44,7 +44,7 @@ print(json.dumps({
         "routine_with_content": rejected({"id": "r", "status": "routine", "intents": ["婉拒"]}),
     },
 }))`;
-  const output = JSON.parse(execFileSync(process.env.WECHATVIBE_PYTHON || "python",
+  const output = JSON.parse(execFileSync(process.env.QQVIBE_PYTHON || "python",
     ["-B", "-c", fixture], { cwd: ROOT, encoding: "utf8" })) as Record<string, unknown>;
   assert.equal(output.revision, "free-label-v5-simple");
   assert.equal(output.scope, "api:x:free-label-v5-simple");

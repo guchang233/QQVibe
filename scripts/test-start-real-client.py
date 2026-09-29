@@ -371,7 +371,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path != "/api/control/shutdown" or self.headers.get("X-WechatVibe-Control-Token") != "a" * 64:
+        if self.path != "/api/control/shutdown" or self.headers.get("X-QQVibe-Control-Token") != "a" * 64:
             self.send_error(403)
             return
         body = b'{"stopping":true}'
@@ -685,7 +685,7 @@ time.sleep(float(os.environ["FIXTURE_EXIT_DELAY"]))
             self.assertEqual(args, ([str(electron), str(shell), "--client-url", self.config.url],))
             self.assertEqual(kwargs["cwd"], str(self.root))
             self.assertTrue(kwargs["close_fds"])
-            self.assertEqual(kwargs["env"]["WECHATVIBE_INSTANCE_ID"], self.config.instance_id)
+            self.assertEqual(kwargs["env"]["QQVIBE_INSTANCE_ID"], self.config.instance_id)
         with patch.object(launcher.subprocess, "Popen", side_effect=OSError("synthetic failure")):
             with self.assertRaisesRegex(launcher.LauncherError, "Could not open dedicated Electron shell"):
                 launcher.open_client(self.config.url, self.root)

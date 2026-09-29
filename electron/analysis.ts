@@ -1068,7 +1068,7 @@ export interface ObservedTextResult {
 }
 
 /**
- * Display-only analysis for the WeChat module's observed text.
+ * Display-only analysis for the QQ module's observed text.
  *
  * The sender is unknown, so the model receives only the message text (no inferred speaker).
  * It returns ONLY emotion/intent probabilities; it never produces relationship, affinity or

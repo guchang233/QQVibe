@@ -1,9 +1,9 @@
 {
-  "name": "wechatvibe",
+  "name": "qqvibe",
   "version": "1.2.2",
   "private": true,
   "type": "module",
-  "description": "WechatVibe 本机只读微信会话分析桌面客户端",
+  "description": "QQVibe 本机只读QQ会话分析桌面客户端",
   "license": "Apache-2.0",
   "main": "scripts/desktop-main.cjs",
   "engines": {
@@ -14,7 +14,7 @@
     "start:service": "python scripts/run-project-python.py scripts/start-real-client.py",
     "setup:models": "tsx scripts/setup-models.ts",
     "catalog:generate": "node scripts/build-analysis-catalog.mjs",
-    "catalog:export": "python scripts/export-label-library.py --output WechatVibe-label-library.txt",
+    "catalog:export": "python scripts/export-label-library.py --output QQVibe-label-library.txt",
     "test": "npm run typecheck && npm run test:node && npm run test:scripts && npm run test:python",
     "test:node": "node --import tsx --test tests/*.test.ts tests/*.test.cjs",
     "test:python": "python scripts/run-python-tests.py",

@@ -13,8 +13,8 @@ function modelAsset(root) {
   const file = path.join(root, "scripts", "model-asset.json");
   const asset = JSON.parse(fs.readFileSync(file, "utf8"));
   // App releases advance independently of this pinned model's file/hash revision.
-  if (asset.schema !== 1 || asset.name !== "WechatVibe-Laya-model-v1.zip" ||
-      !/^https:\/\/github\.com\/tswawa\/WechatVibe\/releases\/download\/v\d+\.\d+\.\d+\/WechatVibe-Laya-model-v1\.zip$/.test(asset.url) ||
+  if (asset.schema !== 1 || asset.name !== "QQVibe-Laya-model-v1.zip" ||
+      !/^https:\/\/github\.com\/tswawa\/QQVibe\/releases\/download\/v\d+\.\d+\.\d+\/QQVibe-Laya-model-v1\.zip$/.test(asset.url) ||
       !Number.isSafeInteger(asset.bytes) || asset.bytes < 500_000_000 || asset.bytes > 800_000_000 ||
       !/^[a-f0-9]{64}$/.test(asset.sha256)) throw new Error("invalid pinned model asset");
   return asset;
@@ -75,7 +75,7 @@ class ModelDownload {
     const timer = setTimeout(() => this.abort.abort(), 30 * 60 * 1000);
     try {
       const response = await this.fetchImpl(this.asset.url, {
-        headers: { Accept: "application/octet-stream", "User-Agent": "WechatVibe-model" },
+        headers: { Accept: "application/octet-stream", "User-Agent": "QQVibe-model" },
         signal: this.abort.signal,
       });
       if (!response.ok || !response.body) throw new Error("model download unavailable");

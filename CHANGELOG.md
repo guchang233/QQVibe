@@ -1,6 +1,6 @@
 # 更新日志
 
-## [1.2.2](https://github.com/tswawa/WechatVibe/releases/tag/v1.2.2)
+## [1.2.2](https://github.com/tswawa/QQVibe/releases/tag/v1.2.2)
 
 本次更新优化了聊天消息的情绪与意图识别，支持 API 批量分析和流式标签显示，并修复 Windows 启动兼容及失败后的后台进程残留问题。
 
@@ -19,30 +19,30 @@
 
 ### 修复
 
-- 修复 Windows 将 `.js` / `.mjs` 错误映射为 `text/plain` 时，界面持续停留在“正在读取会话”的问题；脚本固定使用正确的 JavaScript MIME 类型，保留其他资源的处理方式（[Issue #5](https://github.com/tswawa/WechatVibe/issues/5)）。
+- 修复 Windows 将 `.js` / `.mjs` 错误映射为 `text/plain` 时，界面持续停留在“正在读取会话”的问题；脚本固定使用正确的 JavaScript MIME 类型，保留其他资源的处理方式（[Issue #5](https://github.com/tswawa/QQVibe/issues/5)）。
 - 修复启动失败后 Python / Node 分析进程可能残留的问题，只回收本次启动所属的后台进程。
 - 修复纯标点消息的意图标签被前端过滤的问题。
 
 ### 下载与升级
 
-- **标准应用包**：`WechatVibe-1.2.2-windows-x64.zip`，不内置模型。解压后运行 `win-unpacked/WechatVibe.exe`，并保留完整目录。
-- **源码包**：`WechatVibe-1.2.2-source.zip`，包含本版源码、测试和文档。
-- **独立模型包**：继续使用 `WechatVibe-Laya-model-v1.zip`。已有模型无需重新下载；未安装时可在设置中下载或选择已有目录，仅使用 API 时无需下载。
+- **标准应用包**：`QQVibe-1.2.2-windows-x64.zip`，不内置模型。解压后运行 `win-unpacked/QQVibe.exe`，并保留完整目录。
+- **源码包**：`QQVibe-1.2.2-source.zip`，包含本版源码、测试和文档。
+- **独立模型包**：继续使用 `QQVibe-Laya-model-v1.zip`。已有模型无需重新下载；未安装时可在设置中下载或选择已有目录，仅使用 API 时无需下载。
 - **从 1.2.0 / 1.2.1 升级**：在「设置 → 关于 → 当前版本」检查更新。升级保留账号数据、分析结果、配置和模型；1.2.1 → 1.2.2 应用内更新已完成实端验收。
 - **已安装 1.2.2**：本次正式同步源码与说明，应用包内容不变，无需重复安装。
 - **从 1.0.4 升级**：请手动下载新版，退出旧版后覆盖安装，保留 `resources/client/.local` 与 `resources/client/.models`。
 
 ### 致谢
 
-感谢 [morticuke](https://github.com/morticuke) 在 [Issue #5](https://github.com/tswawa/WechatVibe/issues/5) 中提供 Windows MIME 映射异常的排查过程和修复建议。
+感谢 [morticuke](https://github.com/morticuke) 在 [Issue #5](https://github.com/tswawa/QQVibe/issues/5) 中提供 Windows MIME 映射异常的排查过程和修复建议。
 
-## [1.2.1](https://github.com/tswawa/WechatVibe/releases/tag/v1.2.1)
+## [1.2.1](https://github.com/tswawa/QQVibe/releases/tag/v1.2.1)
 
 本次更新重构了后端代码结构，完善源码运行与模型下载流程，并修复软件更新中的路径兼容问题。
 
 ### 架构优化
 
-- **后端模块拆分**：将原来集中在单一文件中的实现，拆分为微信数据读取、模型进程通信、分析结果存储和应用服务等模块，明确各模块的职责，便于定位问题、独立测试和后续扩展。
+- **后端模块拆分**：将原来集中在单一文件中的实现，拆分为QQ数据读取、模型进程通信、分析结果存储和应用服务等模块，明确各模块的职责，便于定位问题、独立测试和后续扩展。
 - **存储与任务调度分离**：将数据库读写、事务和分析进度保存集中到存储层，应用服务负责账号作用域与任务协调，减少跨模块修改的影响。
 - **保留现有兼容性**：保留原有界面、接口、模型权重、推理算法和本地数据位置，继续使用已有账号数据、分析结果、配置及模型；源码中的旧后端导入路径仍可使用。
 
@@ -50,7 +50,7 @@
 
 - 源码模型下载支持断点续传和失败重试，下载完成后校验文件大小与 SHA-256；完整文件校验通过后才替换已有模型，强制重新下载失败时保留原模型。
 - 统一源码运行时的 Python 解释器选择，遵循显式配置和当前虚拟环境，减少启动与测试使用不同环境的问题。
-- 统一类型检查、Node、桌面更新脚本及 Python 测试入口，补充后端分层、打包依赖、微信数据目录发现和更新路径的回归覆盖。
+- 统一类型检查、Node、桌面更新脚本及 Python 测试入口，补充后端分层、打包依赖、QQ数据目录发现和更新路径的回归覆盖。
 
 ### 修复
 
@@ -60,8 +60,8 @@
 
 ### 下载与升级
 
-- **标准应用包**：`WechatVibe-1.2.1-windows-x64.zip`，不内置模型。解压后运行 `win-unpacked/WechatVibe.exe`，并保留完整目录。
-- **独立模型包**：`WechatVibe-Laya-model-v1.zip`。可在应用设置中下载或选择已有模型目录；仅使用 API 时无需下载。
+- **标准应用包**：`QQVibe-1.2.1-windows-x64.zip`，不内置模型。解压后运行 `win-unpacked/QQVibe.exe`，并保留完整目录。
+- **独立模型包**：`QQVibe-Laya-model-v1.zip`。可在应用设置中下载或选择已有模型目录；仅使用 API 时无需下载。
 - **从 1.2.0 升级**：在「设置 → 关于 → 当前版本」检查更新。升级保留账号数据、分析结果、配置和模型。
 - **此前已安装 1.2.1**：本次包含同版本的路径兼容修订，可重新下载后覆盖安装；同版本不会再次提示自动更新。覆盖前退出软件，并保留 `resources/client/.local` 与 `resources/client/.models`。
 - **旧客户端提示安装位置不可用**：如果软件目录位于目录映射中，请退出后从真实目录启动，再执行更新。
@@ -69,4 +69,4 @@
 
 ### 致谢
 
-感谢 [luo785859020](https://github.com/luo785859020) 提交 [PR #3](https://github.com/tswawa/WechatVibe/pull/3) 和 [PR #4](https://github.com/tswawa/WechatVibe/pull/4)，完善源码运行与下载流程，并完成后端模块拆分。
+感谢 [luo785859020](https://github.com/luo785859020) 提交 [PR #3](https://github.com/tswawa/QQVibe/pull/3) 和 [PR #4](https://github.com/tswawa/QQVibe/pull/4)，完善源码运行与下载流程，并完成后端模块拆分。

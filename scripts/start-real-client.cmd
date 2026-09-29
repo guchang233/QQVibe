@@ -2,7 +2,7 @@
 setlocal
 set "ROOT=%~dp0.."
 set "PYTHON=%ROOT%\runtime\python\python.exe"
-if not exist "%PYTHON%" if defined WECHATVIBE_PYTHON set "PYTHON=%WECHATVIBE_PYTHON%"
+if not exist "%PYTHON%" if defined QQVIBE_PYTHON set "PYTHON=%QQVIBE_PYTHON%"
 if not exist "%PYTHON%" set "PYTHON=python"
 "%PYTHON%" "%ROOT%\scripts\start-real-client.py" %*
 set "RESULT=%ERRORLEVEL%"

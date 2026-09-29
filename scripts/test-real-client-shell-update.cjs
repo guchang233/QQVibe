@@ -40,7 +40,7 @@ async function main() {
       if (name === "./real-client-model.cjs") return { ModelDownload: class { getState() { return { phase: "idle" }; } cancel() {} } };
       if (name === "./real-client-recovery.cjs") return { monitorBridge() {} };
       if (name === "./real-client-update.cjs") return {
-        RELEASES_URL: "https://github.com/tswawa/WechatVibe/releases",
+        RELEASES_URL: "https://github.com/tswawa/QQVibe/releases",
         checkForUpdates: async (version, options) => {
           calls.update++;
           assert.equal(version, "1.0.1");

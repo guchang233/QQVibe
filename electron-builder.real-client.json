@@ -1,14 +1,14 @@
 {
-  "appId": "com.local.wechatvibe.real-client",
-  "productName": "WechatVibe",
+  "appId": "com.local.qqvibe.real-client",
+  "productName": "QQVibe",
   "directories": {
     "output": "__CLEAN_BUILD_OUTPUT__"
   },
   "electronDist": "__ELECTRON_DIST__",
   "extraMetadata": {
-    "name": "wechatvibe",
+    "name": "qqvibe",
     "author": "tswawa",
-    "description": "WechatVibe local chat analysis and portraits",
+    "description": "QQVibe local chat analysis and portraits",
     "main": "scripts/desktop-main.cjs"
   },
   "files": [
@@ -39,7 +39,7 @@
   ],
   "win": {
     "target": ["dir"],
-    "icon": "chatui/assets/wechatvibe-icon.ico",
-    "executableName": "WechatVibe"
+    "icon": "chatui/assets/qqvibe-icon.ico",
+    "executableName": "QQVibe"
   }
 }

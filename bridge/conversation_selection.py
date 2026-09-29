@@ -1,7 +1,7 @@
-"""Per-WeChat-account selection for conversations shown in the chat sidebar.
+"""Per-QQ-account selection for conversations shown in the chat sidebar.
 
 Only session identifiers are stored here. Removing a selection never touches
-WeChat source files, imported messages, or analysis results.
+QQ source files, imported messages, or analysis results.
 """
 from __future__ import annotations
 

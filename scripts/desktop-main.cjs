@@ -9,9 +9,9 @@ const root = app.isPackaged ? path.join(process.resourcesPath, "client") : path.
 const bundledPython = path.join(root, "runtime", "python", "python.exe");
 const bundledNode = path.join(root, "runtime", "node", "node.exe");
 const projectPython = path.join(root, ".venv", "Scripts", "python.exe");
-const python = process.env.WECHATVIBE_PYTHON || (fs.existsSync(bundledPython) ? bundledPython :
+const python = process.env.QQVIBE_PYTHON || (fs.existsSync(bundledPython) ? bundledPython :
   fs.existsSync(projectPython) ? projectPython : "python");
-const node = process.env.WECHATVIBE_NODE || (fs.existsSync(bundledNode) ? bundledNode : "node");
+const node = process.env.QQVIBE_NODE || (fs.existsSync(bundledNode) ? bundledNode : "node");
 const launcher = path.join(root, "scripts", "start-real-client.py");
 let profileReady = false;
 // True only when this launch created the bridge (not when it reused a ready one).
@@ -37,7 +37,7 @@ function stopOwnedBridge(callback) {
     return;
   }
   const environment = {
-    ...process.env, WECHATVIBE_CLIENT_ROOT: root, WECHATVIBE_PYTHON: python,
+    ...process.env, QQVIBE_CLIENT_ROOT: root, QQVIBE_PYTHON: python,
   };
   try {
     execFile(python, [launcher, "--stop-owned-bridge", "--json"], {
@@ -49,7 +49,7 @@ function stopOwnedBridge(callback) {
 }
 
 function fail() {
-  dialog.showErrorBox("WechatVibe 启动失败", "本地服务未就绪，请检查运行文件是否完整。");
+  dialog.showErrorBox("QQVibe 启动失败", "本地服务未就绪，请检查运行文件是否完整。");
   app.quit();
 }
 
@@ -65,9 +65,9 @@ app.whenReady().then(() => {
   }
   const environment = {
     ...process.env,
-    WECHATVIBE_CLIENT_ROOT: root,
-    WECHATVIBE_PYTHON: python,
-    WECHATVIBE_NODE: node,
+    QQVIBE_CLIENT_ROOT: root,
+    QQVIBE_PYTHON: python,
+    QQVIBE_NODE: node,
     PATH: (path.isAbsolute(node) ? path.dirname(node) + path.delimiter : "") + (process.env.PATH || ""),
   };
   // Desktop launches derive their port from this installation, even when a
@@ -89,8 +89,8 @@ app.whenReady().then(() => {
       if (result.version !== "real-ui-1" || !match || !/^[a-f0-9]{64}$/.test(result.instanceId) ||
           Number(match[1]) < 1 || Number(match[1]) > 65535) throw new Error("Invalid launcher result");
       Object.assign(process.env, environment, {
-        CHATUI_PORT: match[1], WECHATVIBE_INSTANCE_ID: result.instanceId,
-        WECHATVIBE_BRIDGE_CREATED: bridgeCreated ? "1" : "0",
+        CHATUI_PORT: match[1], QQVIBE_INSTANCE_ID: result.instanceId,
+        QQVIBE_BRIDGE_CREATED: bridgeCreated ? "1" : "0",
       });
     } catch (_) {
       if (!bridgeCreated) bridgeCreated = /"created"\s*:\s*true/.test(String(stdout || ""));

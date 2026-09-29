@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-NAME = "WechatVibe-Laya-model-v1.zip"
+NAME = "QQVibe-Laya-model-v1.zip"
 
 
 def digest(path: Path) -> str:

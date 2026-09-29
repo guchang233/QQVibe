@@ -13,7 +13,7 @@ function release(version = "1.0.2") {
   return {
     tag_name: tag, html_url: `${RELEASES_URL}/tag/${tag}`, draft: false, prerelease: false,
     assets: [asset("update-manifest.json", 200), asset("update-manifest.sig", 64),
-      asset(`WechatVibe-${version}-windows-x64.zip`, 900_000_000), asset("SHA256SUMS.txt", 200)],
+      asset(`QQVibe-${version}-windows-x64.zip`, 900_000_000), asset("SHA256SUMS.txt", 200)],
   };
 }
 
@@ -70,7 +70,7 @@ async function main() {
   };
   // GitHub metadata alone must never make a Release trustworthy.
   assert.equal((await checkForUpdates("1.0.1", { fetchImpl: successfulFetch })).status, "invalid-release");
-  assert.equal(requests[0].url, "https://api.github.com/repos/tswawa/WechatVibe/releases/latest");
+  assert.equal(requests[0].url, "https://api.github.com/repos/tswawa/QQVibe/releases/latest");
   assert.equal(requests[0].options.redirect, "error");
   assert.equal((await checkForUpdates("1.0.1", { fetchImpl: fetched("{}", { status: 404 }) })).status, "no-release");
   assert.equal((await checkForUpdates("1.0.1", { fetchImpl: fetched("", { status: 403, headers: { "x-ratelimit-remaining": "0" } }) })).status, "rate-limited");

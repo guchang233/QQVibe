@@ -1,6 +1,6 @@
 """Compatibility imports for the former monolithic backend.
 
-New code imports backend_service, result_store, wechat_source, node_analysis, or
+New code imports backend_service, result_store, qq_source, node_analysis, or
 backend_contracts directly. This facade contains no runtime implementation.
 """
 
@@ -24,9 +24,9 @@ from backend_contracts import (
 from backend_service import (
     Backend,
 )
-from wechat_source import (
-    active_account_dir, positive_timestamp, session_preview, avatar_candidates,
-    contact_display, message_id, WeChatSource,
+from qq_source import (
+    positive_timestamp, session_preview, avatar_candidates,
+    contact_display, message_id, QQSource,
 )
 from node_analysis import (
     NodeAnalysis,
@@ -52,9 +52,9 @@ __all__ = [
     'api_portrait_plan', 'api_portrait_resume_anchor', 'api_portrait_scope', 'api_portrait_tail_hashes',
     'api_portrait_wire_chars', 'empty_api_portrait', 'infer_mbti', 'mbti_from_totals',
     'model_source_failure', 'mood_from_progress', 'scope_rank', 'valid_api_portrait',
-    'validate_personality_evidence', 'Backend', 'active_account_dir', 'positive_timestamp',
+    'validate_personality_evidence', 'Backend', 'positive_timestamp',
     'session_preview', 'avatar_candidates', 'contact_display', 'message_id',
-    'WeChatSource', 'NodeAnalysis', 'ResultStore', 'empty_profile_state',
+    'QQSource', 'NodeAnalysis', 'ResultStore', 'empty_profile_state',
     'historical_mood', 'keywords_from_texts', 'style_traits', 'summary_from_signals',
     'validate_style_evidence',
 ]

@@ -11,10 +11,10 @@ __pycache__/
 *.db
 *.db-*
 *.sqlite*
-WechatVibe-label-library.txt
+QQVibe-label-library.txt
 
 # Local account data, credentials and machine-specific files
-wechatauto_logs/
+qqvibe_logs/
 userData/
 .cache/
 .pytest_cache/

@@ -2598,7 +2598,7 @@ body.theme-light .settings-row select {
 }
 
 /* ========================================================
-   WeChat Desktop Settings Modal (设置面板)
+   QQ Desktop Settings Modal (设置面板)
    ======================================================== */
 .settings-modal-overlay {
   position: absolute;
@@ -2971,7 +2971,7 @@ body.theme-light .inline-intent-row .intent-item.primary { color: #4a4a4c; }
 .account-clear-btn { flex: none; }
 .account-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; border: 1px solid var(--border-color); border-radius: 5px; padding: 7px 9px; background: var(--bg-search); color: var(--text-main); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
 .account-item:hover, .account-item.active { border-color: var(--color-green); }
-.account-wechat-id { min-width: 0; overflow-wrap: anywhere; }
+.account-qq-id { min-width: 0; overflow-wrap: anywhere; }
 .account-current { flex: none; color: var(--text-secondary); }
 .account-manager-actions { justify-content: flex-start; min-height: 28px; }
 #accountManagerStatus { color: var(--text-secondary); overflow-wrap: anywhere; }

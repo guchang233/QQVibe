@@ -63,8 +63,8 @@ async function main() {
     assert.equal(calls.launches[0].options.env.CHATUI_PORT, undefined);
     assert.deepEqual(Array.from(calls.launches[0].args).slice(-2), ['--no-open', '--json']);
     assert.equal(processStub.env.CHATUI_PORT, '34567');
-    assert.equal(processStub.env.WECHATVIBE_INSTANCE_ID, instanceId);
-    assert.equal(processStub.env.WECHATVIBE_BRIDGE_CREATED, '1');
+    assert.equal(processStub.env.QQVIBE_INSTANCE_ID, instanceId);
+    assert.equal(processStub.env.QQVIBE_BRIDGE_CREATED, '1');
     assert.deepEqual(Array.from(processStub.argv).slice(-2), ['--client-url', 'http://127.0.0.1:34567/']);
     assert.equal(calls.shellLoads, 1);
     assert.equal(calls.errors.length, 0);
@@ -76,7 +76,7 @@ async function main() {
   // A reused ready bridge is never stopped on a startup failure.
   const reused = await launch(true, validResult(false));
   assert.equal(reused.calls.shellLoads, 1);
-  assert.equal(reused.processStub.env.WECHATVIBE_BRIDGE_CREATED, '0');
+  assert.equal(reused.processStub.env.QQVIBE_BRIDGE_CREATED, '0');
   assert.equal(cleanupLaunches(reused.calls).length, 0);
 
   // An invalid launcher result only stops the bridge this launch created.
@@ -88,7 +88,7 @@ async function main() {
   const ownedCleanups = cleanupLaunches(invalidOwned.calls);
   assert.equal(ownedCleanups.length, 1);
   assert.deepEqual(Array.from(ownedCleanups[0].args).slice(-2), ['--stop-owned-bridge', '--json']);
-  assert.equal(ownedCleanups[0].options.env.WECHATVIBE_CLIENT_ROOT,
+  assert.equal(ownedCleanups[0].options.env.QQVIBE_CLIENT_ROOT,
     path.join(__dirname, 'synthetic-resources', 'client'));
 
   const invalidReused = await launch(true, JSON.stringify({ version: 'real-ui-1',

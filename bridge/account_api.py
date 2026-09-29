@@ -1,4 +1,4 @@
-"""Attach account management to the local UI without touching WeChat source files."""
+"""Attach account management to the local UI without touching QQ source files."""
 from __future__ import annotations
 
 import threading
@@ -9,13 +9,22 @@ import uuid
 from pathlib import Path
 
 from account_store import AccountConflict, AccountStore, account_id, _check_root, _regular
-from snapshot_cache import try_forget_account, wait_forget_account
+
+
+def _no_snapshot_writer(_workdir):
+    """QQ reads live from the injected reader, so there is no snapshot to drain."""
+    return True
 
 
 class AccountAPI:
     def __init__(self, backend, data_dir, snapshot_root=None, stable_keys_dir=None):
         self.backend = backend
-        self.store = AccountStore(data_dir, snapshot_root, stable_keys_dir)
+        base = Path(data_dir).resolve().parent
+        # The QQ source places its account-scoped workdir under `.local/qqnt/accounts`,
+        # so the account index must use the very same root. QQ keeps no encrypted
+        # key cache, so the legacy stable-key directory is disabled by default.
+        self.store = AccountStore(data_dir, snapshot_root or base / "qqnt" / "accounts",
+                                  stable_keys_dir if stable_keys_dir is not None else "")
         self.lock = threading.RLock()
         self.registered = {}
         self.deleting = False
@@ -63,7 +72,7 @@ class AccountAPI:
                     else:
                         actual, workdir = self.backend.source.identity()
                 if actual != account:
-                    raise AccountConflict("微信账号已变化，请刷新")
+                    raise AccountConflict("QQ 账号已变化，请刷新")
                 self.store.register(actual, workdir, *display)
                 self.registered[account] = display
 
@@ -72,10 +81,6 @@ class AccountAPI:
         if getattr(source, "dynamic_account", False):
             selection = source.active_account_locator()
             if selection is None:
-                if deleting:
-                    from live_source import discovery
-                    if discovery.find_weixin_processes():
-                        raise AccountConflict("暂无法确认当前微信账号，请稍后重试")
                 return None
             location = getattr(selection, "account_dir", selection)
             return Path(location).name
@@ -112,7 +117,7 @@ class AccountAPI:
                 def guard(owned):
                     if owned != account:
                         raise AccountConflict("账号范围已变化")
-                result = self.store.delete(identifier, guard=guard, forget=wait_forget_account)
+                result = self.store.delete(identifier, guard=guard, forget=_no_snapshot_writer)
                 paused = False
                 shutdown()
             else:
@@ -136,7 +141,7 @@ class AccountAPI:
                                 for key, job in engine.member_jobs.items()))
                             if busy_job or busy_recent or busy_member:
                                 raise AccountConflict("账号分析尚未结束，请稍后重试")
-                    result = self.store.delete(identifier, guard=guard, forget=try_forget_account)
+                    result = self.store.delete(identifier, guard=guard, forget=_no_snapshot_writer)
                     forget_keys = getattr(source, "forget_account", None)
                     if callable(forget_keys):
                         forget_keys(account)

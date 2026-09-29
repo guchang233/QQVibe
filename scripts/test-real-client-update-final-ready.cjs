@@ -17,11 +17,11 @@ function removeFixture(root) {
 }
 
 async function main() {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "wechatvibe-final-ready-"));
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "qqvibe-final-ready-"));
   try {
-    const installRoot = path.join(parent, "WechatVibe");
+    const installRoot = path.join(parent, "QQVibe");
     const clientRoot = path.join(installRoot, "resources", "client");
-    const workDir = path.join(parent, ".wechatvibe-update-fixture");
+    const workDir = path.join(parent, ".qqvibe-update-fixture");
     fs.mkdirSync(clientRoot, { recursive: true });
     fs.mkdirSync(workDir);
     const marker = path.join(workDir, "ui-final-ready-11111111-1111-4111-8111-111111111111.json");
@@ -52,9 +52,9 @@ async function main() {
     const source = fs.readFileSync(path.join(__dirname, "real-client-shell.cjs"), "utf8");
     vm.runInNewContext(source, { __dirname, URL, fs,
       process: { platform: "win32", env: {
-        WECHATVIBE_CLIENT_ROOT: clientRoot, WECHATVIBE_INSTANCE_ID: instanceId,
-        WECHATVIBE_UPDATE_FINAL_READY_FILE: marker,
-        WECHATVIBE_UPDATE_FINAL_READY_NONCE: nonce,
+        QQVIBE_CLIENT_ROOT: clientRoot, QQVIBE_INSTANCE_ID: instanceId,
+        QQVIBE_UPDATE_FINAL_READY_FILE: marker,
+        QQVIBE_UPDATE_FINAL_READY_NONCE: nonce,
       }, argv: ["electron", "shell", "--client-url", url], stderr: { write() {} } },
       setImmediate, setTimeout: callback => { const id = timers.length + 1; timers.push({ id, callback }); return id; },
       clearTimeout: id => cleared.push(id),
@@ -70,7 +70,7 @@ async function main() {
         if (name.endsWith(path.join("node_modules", "undici"))) return { ProxyAgent: class {} };
         if (name === "./real-client-recovery.cjs") return { monitorBridge: () => () => {} };
         if (name === "./real-client-update.cjs") return {
-          RELEASES_URL: "https://github.com/tswawa/WechatVibe/releases",
+          RELEASES_URL: "https://github.com/tswawa/QQVibe/releases",
           checkForUpdates: async () => ({ status: "current" }),
         };
         if (name === "./real-client-update-controller.cjs") return {

@@ -24,8 +24,8 @@ async function main() {
   assert.equal(parseSavedLoopbackProxy("http=remote.invalid:8080;https=[::1]:7897"),
     "http://[::1]:7897");
 
-  const api = "https://api.github.com/repos/tswawa/WechatVibe/releases/latest";
-  const asset = "https://github.com/tswawa/WechatVibe/releases/download/v1.0.4/file.zip";
+  const api = "https://api.github.com/repos/tswawa/QQVibe/releases/latest";
+  const asset = "https://github.com/tswawa/QQVibe/releases/download/v1.0.4/file.zip";
   const cdn = "https://release-assets.githubusercontent.com/file";
   const resolved = [];
   const fetched = [];

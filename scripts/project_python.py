@@ -8,11 +8,11 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 def select_python() -> Path:
-    override = os.environ.get("WECHATVIBE_PYTHON")
+    override = os.environ.get("QQVIBE_PYTHON")
     if override:
         candidate = Path(shutil.which(override) or override).resolve()
         if not candidate.is_file():
-            raise FileNotFoundError("WECHATVIBE_PYTHON does not identify an installed interpreter")
+            raise FileNotFoundError("QQVIBE_PYTHON does not identify an installed interpreter")
         return candidate
     active = os.environ.get("VIRTUAL_ENV")
     relative = Path("Scripts/python.exe") if os.name == "nt" else Path("bin/python")

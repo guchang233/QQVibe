@@ -57,12 +57,11 @@ SENSITIVE_STEM_RE = re.compile(r"(?:auth|authorization|credentials?|secrets?|tok
 PUBLIC_CODE_SUFFIXES = {".py", ".pyi", ".pyd", ".js", ".cjs", ".mjs", ".ts", ".mts", ".md"}
 DATABASE_SUFFIX_RE = re.compile(r"\.(?:db|sqlite|sqlite3)(?:[-.](?:wal|shm|journal|bak|backup))?\Z")
 ALLOWED_APP_IMAGES = {
-    ("resources", "client", "chatui", "assets", "wechatvibe-icon.png"),
-    ("resources", "client", "chatui", "assets", "wechatvibe-icon.ico"),
+    ("resources", "client", "chatui", "assets", "qqvibe-icon.png"),
+    ("resources", "client", "chatui", "assets", "qqvibe-icon.ico"),
 }
 DEPENDENCY_IMAGE_ROOTS = (
     ("resources", "client", "runtime", "python", "lib", "site-packages", "win32com"),
-    ("resources", "client", "runtime", "python", "lib", "site-packages", "wechatauto"),
 )
 SDK_CODE_ROOTS = (
     ("resources", "client", "node_modules", "@anthropic-ai", "sdk"),
@@ -187,7 +186,7 @@ def _digest(path: Path) -> str:
 
 def _verify_asar(files: dict[str, tuple[Path, os.stat_result]], version: str,
                  node_exe: Path | None) -> None:
-    node_source = node_exe or os.environ.get("WECHATVIBE_BUILD_NODE") or shutil.which("node")
+    node_source = node_exe or os.environ.get("QQVIBE_BUILD_NODE") or shutil.which("node")
     if not node_source or not Path(node_source).is_file():
         raise ValueError("Node.js is required to inspect packaged app.asar")
     for name in ASAR_SCRIPTS:
@@ -201,7 +200,7 @@ def _verify_asar(files: dict[str, tuple[Path, os.stat_result]], version: str,
     if completed.returncode:
         raise ValueError("app.asar inspection failed; check @electron/asar and archive integrity")
     report = json.loads(completed.stdout)
-    if (report.get("name") != "wechatvibe" or report.get("main") != "scripts/desktop-main.cjs" or
+    if (report.get("name") != "qqvibe" or report.get("main") != "scripts/desktop-main.cjs" or
             report.get("version") != version):
         raise ValueError("app.asar identity does not match requested stable version")
     for name in ASAR_SCRIPTS:
@@ -229,10 +228,10 @@ def _require_package(rows: list[tuple[Path, Path, bool, os.stat_result]], versio
     if metadata_info.st_size > 64 * 1024:
         raise ValueError("packaged runtime metadata is too large")
     package = json.loads(metadata.read_text(encoding="utf-8"))
-    if package.get("name") != "wechatvibe-runtime" or package.get("version") != version:
+    if package.get("name") != "qqvibe-runtime" or package.get("version") != version:
         raise ValueError("packaged runtime version does not match requested stable version")
     _verify_asar(files, version, node_exe)
-    with files["WechatVibe.exe"][0].open("rb") as stream:
+    with files["QQVibe.exe"][0].open("rb") as stream:
         if stream.read(2) != b"MZ":
             raise ValueError("packaged executable header is invalid")
 
@@ -306,7 +305,7 @@ def build_release(source: Path, output_dir: Path, version: str,
     output_dir.mkdir(parents=True, exist_ok=True)
     _check_stat(output_dir, output_dir.lstat(), directory=True)
     suffix = "-windows-x64-full.zip" if with_model else "-windows-x64.zip"
-    target = output_dir / f"WechatVibe-{version}{suffix}"
+    target = output_dir / f"QQVibe-{version}{suffix}"
     if target.exists() or target.is_symlink():
         raise FileExistsError(f"release archive already exists: {target}")
     handle, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=output_dir)

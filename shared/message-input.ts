@@ -14,7 +14,7 @@
 //   control characters.
 
 export type MessageSide = "self" | "other";
-export type MessageSourceKind = "wechat" | "ocr" | "unknown";
+export type MessageSourceKind = "qq" | "ocr" | "unknown";
 
 export interface MessageQuote {
   id: string | null;
@@ -61,7 +61,7 @@ export interface TrustedScope {
   sourceKind?: MessageSourceKind;
 }
 
-const SOURCE_KINDS = new Set<MessageSourceKind>(["wechat", "ocr", "unknown"]);
+const SOURCE_KINDS = new Set<MessageSourceKind>(["qq", "ocr", "unknown"]);
 
 const MAX_ACCOUNT = 200;
 const MAX_CONVERSATION = 256;

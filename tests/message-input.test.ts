@@ -18,7 +18,7 @@ function meta(overrides: Partial<MessageInputMeta> = {}): MessageInputMeta {
   return {
     accountId: "acct", conversationId: "friend",
     senderId: "member-a", senderName: "阿甲", sentAtMs: 1700000000000,
-    source: { kind: "wechat" }, quote: null,
+    source: { kind: "qq" }, quote: null,
     ...overrides,
   };
 }
@@ -45,9 +45,9 @@ from message_input import prepare_messages
 from node_analysis import NodeAnalysis
 rows=[{'id':'a','side':'other','text':'甲说','senderId':'member-a','senderName':'阿甲','time':1.5},
       {'id':'b','side':'other','text':'乙说','senderId':'member-b','senderName':'阿乙','time':2}]
-prepared=prepare_messages(rows,account_id='acct',conversation_id='group@chatroom',source_kind='wechat')
+prepared=prepare_messages(rows,account_id='acct',conversation_id='group@chatroom',source_kind='qq')
 print(json.dumps(NodeAnalysis._wire_messages(prepared),ensure_ascii=True))`;
-  const wire = JSON.parse(execFileSync(process.env.WECHATVIBE_PYTHON || "python", ["-B", "-c", fixture],
+  const wire = JSON.parse(execFileSync(process.env.QQVIBE_PYTHON || "python", ["-B", "-c", fixture],
     { cwd: new URL("../", import.meta.url), encoding: "utf8" })) as Record<string, unknown>[];
   const restored = wire.map((entry) => buildUnifiedInput(entry,
     { accountId: "acct", conversationId: "group@chatroom" }));
@@ -125,7 +125,7 @@ it("preserves supplied SELF identity and rejects conflicting known provenance", 
   assert.equal(known.senderId, "me");
   assert.equal(known.senderName, "本人");
   assert.throws(() => buildUnifiedInput({ id: "m", side: "other", text: "x", senderId: "another", inputMeta: meta() }), /conflicting senderId/u);
-  assert.throws(() => buildUnifiedInput({ id: "m", side: "other", text: "x", inputMeta: meta({ source: { kind: "ocr" } }) }, { sourceKind: "wechat" }), /conflicting source/u);
+  assert.throws(() => buildUnifiedInput({ id: "m", side: "other", text: "x", inputMeta: meta({ source: { kind: "ocr" } }) }, { sourceKind: "qq" }), /conflicting source/u);
   assert.throws(() => buildUnifiedInput({ id: "m", side: "other", text: "x", time: 7, inputMeta: meta() }), /conflicting sentAtMs/u);
   assert.equal(normalizeInputMeta({ source: { kind: null } })?.source.kind, "unknown");
 });

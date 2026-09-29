@@ -7,7 +7,7 @@ const path = require("node:path");
 const { checkForUpdates, downloadAndStageUpdate } = require("./real-client-update.cjs");
 
 const BUSY = new Set(["downloading", "verifying", "extracting", "installing", "restarting"]);
-const WORK_PREFIX = ".wechatvibe-update-";
+const WORK_PREFIX = ".qqvibe-update-";
 
 function samePath(a, b) {
   return path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
@@ -32,7 +32,7 @@ function readRollback(parent, installRoot, currentVersion) {
       if (journal.schema !== 1 || journal.phase !== "succeeded" ||
           !samePath(journal.installRoot, installRoot) || journal.expectedVersion !== currentVersion ||
           typeof journal.previousVersion !== "string" || !fs.statSync(backup).isDirectory() ||
-          !fs.statSync(path.join(backup, "WechatVibe.exe")).isFile()) continue;
+          !fs.statSync(path.join(backup, "QQVibe.exe")).isFile()) continue;
       candidates.push({ workDir, backup, version: journal.previousVersion,
         mtime: fs.statSync(path.join(workDir, "journal.json")).mtimeMs });
     } catch (_) { /* A damaged operation must not become a rollback option. */ }
@@ -45,8 +45,8 @@ function runLauncher(python, root, port, args) {
   return new Promise((resolve, reject) => {
     execFile(python, [path.join(root, "scripts", "start-real-client.py"), ...args], {
       cwd: root, windowsHide: true, timeout: 230000, maxBuffer: 65536,
-      env: { ...process.env, CHATUI_PORT: String(port), WECHATVIBE_CLIENT_ROOT: root,
-        WECHATVIBE_PYTHON: python },
+      env: { ...process.env, CHATUI_PORT: String(port), QQVIBE_CLIENT_ROOT: root,
+        QQVIBE_PYTHON: python },
     }, (error, stdout) => {
       if (error) return reject(new Error("本地分析服务未能安全退出"));
       try { resolve(JSON.parse(stdout)); }
@@ -74,7 +74,7 @@ function spawnHelper(helper, operationFile, workDir) {
   return new Promise((resolve, reject) => {
     const child = spawn(helper.node, [helper.script, operationFile], {
       cwd: workDir, detached: true, windowsHide: true, stdio: "ignore",
-      env: { ...process.env, WECHATVIBE_CLIENT_ROOT: "", CHATUI_PORT: "" },
+      env: { ...process.env, QQVIBE_CLIENT_ROOT: "", CHATUI_PORT: "" },
     });
     child.once("error", reject);
     child.once("spawn", () => { child.unref(); resolve(child.pid); });
@@ -120,7 +120,7 @@ function createUpdateController({ app, root, port, instanceId, onState, pauseRec
   async function handoff(action, candidatePath, workDir, expectedVersion) {
     if (!app.isPackaged || process.platform !== "win32" || !directChild(workDir, parent) ||
         !samePath(path.dirname(candidatePath), workDir) ||
-        !fs.existsSync(path.join(candidatePath, "WechatVibe.exe"))) {
+        !fs.existsSync(path.join(candidatePath, "QQVibe.exe"))) {
       throw new Error("更新包或安装位置不可用");
     }
     const python = path.join(root, "runtime", "python", "python.exe");

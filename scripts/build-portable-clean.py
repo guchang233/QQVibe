@@ -142,7 +142,7 @@ def verify_asar(root: Path, unpacked: Path, node_exe: Path, version: str,
         cwd=root, check=True, capture_output=True, text=True,
     )
     report = json.loads(completed.stdout)
-    if report["version"] != version or report["name"] != "wechatvibe" or report["main"] != "scripts/desktop-main.cjs":
+    if report["version"] != version or report["name"] != "qqvibe" or report["main"] != "scripts/desktop-main.cjs":
         raise ValueError("app.asar source version or entry point differs")
     for name in scripts:
         if report["files"].get(name) != expected[name.casefold()]["sha256"]:
@@ -156,12 +156,12 @@ def verify_package(root: Path, build_dir: Path, node_exe: Path) -> dict:
     if digest(root / "package.json") != client["sourcePackageSha256"]:
         raise ValueError("source package.json changed during build")
     unpacked = build_dir / "release" / "win-unpacked"
-    executable = unpacked / "WechatVibe.exe"
+    executable = unpacked / "QQVibe.exe"
     if not executable.is_file() or executable.stat().st_size == 0:
-        raise ValueError("packaged WechatVibe.exe missing")
+        raise ValueError("packaged QQVibe.exe missing")
     with executable.open("rb") as stream:
         if stream.read(2) != b"MZ":
-            raise ValueError("packaged WechatVibe.exe header differs")
+            raise ValueError("packaged QQVibe.exe header differs")
     packaged_client = unpacked / "resources" / "client"
     verify_tree(packaged_client, expected)
     packaged_version = json.loads((packaged_client / "package.json").read_text(encoding="utf-8"))["version"]
@@ -176,7 +176,7 @@ def verify_package(root: Path, build_dir: Path, node_exe: Path) -> dict:
 def build(args: argparse.Namespace) -> dict:
     root = ROOT
     python_exe = Path(args.python_exe).resolve() if args.python_exe else Path(sys.executable).resolve()
-    node_source = args.node_exe or os.environ.get("WECHATVIBE_BUILD_NODE") or shutil.which("node")
+    node_source = args.node_exe or os.environ.get("QQVIBE_BUILD_NODE") or shutil.which("node")
     if not node_source:
         raise ValueError("node.exe not found; use --node-exe")
     node_exe = Path(node_source).resolve()
@@ -184,7 +184,7 @@ def build(args: argparse.Namespace) -> dict:
         raise ValueError("Python or Node executable is missing")
     model_source = args.models_dir or os.environ.get("LAYA_MODEL_DIR") or root / ".models/laya"
     models = Path(model_source).resolve()
-    electron_source = args.electron_dist or os.environ.get("WECHATVIBE_ELECTRON_DIST") or root / "node_modules/electron/dist"
+    electron_source = args.electron_dist or os.environ.get("QQVIBE_ELECTRON_DIST") or root / "node_modules/electron/dist"
     electron_dist = Path(electron_source).resolve()
     if not models.is_dir():
         raise ValueError(f"Laya model directory is missing: {models}")
@@ -197,9 +197,9 @@ def build(args: argparse.Namespace) -> dict:
     build_dir = Path(tempfile.mkdtemp(prefix="build-", dir=build_root))
     stage = build_dir / "client"
     environment = os.environ.copy()
-    environment["WECHATVIBE_BUILD_NODE"] = str(node_exe)
+    environment["QQVIBE_BUILD_NODE"] = str(node_exe)
     if args.node_license:
-        environment["WECHATVIBE_NODE_LICENSE"] = str(Path(args.node_license).resolve())
+        environment["QQVIBE_NODE_LICENSE"] = str(Path(args.node_license).resolve())
     print(f"Clean build directory: {build_dir}", flush=True)
     subprocess.run([str(python_exe), str(root / "scripts/stage-real-runtime.py"),
                     "--output", str(stage)], cwd=root, env=environment, check=True)

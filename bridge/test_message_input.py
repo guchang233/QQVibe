@@ -44,7 +44,7 @@ class IdentityTests(unittest.TestCase):
         prepared = message_input.prepare_messages(
             [source_item(id="a", senderId="member-a", senderName="阿甲"),
              source_item(id="b", senderId="member-b", senderName="阿乙")],
-            account_id="acct", conversation_id="room@chatroom", source_kind="wechat")
+            account_id="acct", conversation_id="room@chatroom", source_kind="qq")
         wire = [NodeAnalysis._wire_messages([item])[0] for item in prepared]
         round_tripped = json.loads(json.dumps(wire, ensure_ascii=False))
         meta = [message_input.normalize_input_meta(entry["inputMeta"]) for entry in round_tripped]
@@ -140,18 +140,18 @@ class MetadataMergeTests(unittest.TestCase):
         self.assertEqual(record["quote"]["text"], "旧引用")
         self.assertEqual(record["sentAtMs"], 7)
 
-    def test_source_kind_defaults_to_unknown_and_backend_can_pin_wechat(self):
+    def test_source_kind_defaults_to_unknown_and_backend_can_pin_qq(self):
         self.assertEqual(message_input.build_input_record(source_item())["source"]["kind"],
                          "unknown")
         self.assertEqual(message_input.build_input_record(
-            source_item(), source_kind="wechat")["source"]["kind"], "wechat")
+            source_item(), source_kind="qq")["source"]["kind"], "qq")
         self.assertEqual(message_input.build_input_record(
             source_item(), source_kind="ocr")["source"]["kind"], "ocr")
         with self.assertRaises(ValueError):
             message_input.build_input_record(source_item(), source_kind="api:model")
 
     def test_existing_invalid_metadata_is_rejected(self):
-        for bad in ("nope", {"source": "wechat"}, {"source": {"kind": "camera"}},
+        for bad in ("nope", {"source": "qq"}, {"source": {"kind": "camera"}},
                     {"accountId": 7}, {"sentAtMs": math.inf},
                     {"senderName": "阿" * 201}):
             with self.subTest(bad=bad):
@@ -170,17 +170,17 @@ class WireCompatibilityTests(unittest.TestCase):
     def test_prepare_item_preserves_legacy_keys_byte_for_byte(self):
         item = source_item()
         prepared = message_input.prepare_item(item, account_id="acct",
-                                              conversation_id="friend", source_kind="wechat")
+                                              conversation_id="friend", source_kind="qq")
         for key in ("id", "side", "text", "kind", "time"):
             self.assertEqual(prepared[key], item[key])
         self.assertNotIn("inputMeta", item)
         self.assertEqual(prepared["inputMeta"]["accountId"], "acct")
-        self.assertEqual(prepared["inputMeta"]["source"]["kind"], "wechat")
+        self.assertEqual(prepared["inputMeta"]["source"]["kind"], "qq")
 
     def test_node_projection_is_the_same_with_and_without_metadata(self):
         item = source_item()
         prepared = message_input.prepare_item(item, account_id="acct",
-                                              conversation_id="friend", source_kind="wechat")
+                                              conversation_id="friend", source_kind="qq")
         legacy = NodeAnalysis._wire_messages([item])[0]
         with_meta = NodeAnalysis._wire_messages([prepared])[0]
         self.assertEqual({key: with_meta[key] for key in legacy}, legacy)
@@ -195,7 +195,7 @@ class WireCompatibilityTests(unittest.TestCase):
 
     def test_record_to_meta_carries_no_legacy_text_fields(self):
         record = message_input.build_input_record(source_item(), account_id="acct",
-                                                  conversation_id="friend", source_kind="wechat")
+                                                  conversation_id="friend", source_kind="qq")
         meta = message_input.record_to_meta(record)
         self.assertEqual(set(meta), {"accountId", "conversationId", "senderId", "senderName",
                                      "sentAtMs", "source", "quote"})
@@ -213,11 +213,11 @@ class AdditionalContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 message_input.build_input_record(source_item(inputMeta=meta))
         with self.assertRaises(ValueError):
-            message_input.build_input_record(source_item(inputMeta={"source": {"kind": "ocr"}}), source_kind="wechat")
+            message_input.build_input_record(source_item(inputMeta={"source": {"kind": "ocr"}}), source_kind="qq")
 
     def test_repeated_preparation_preserves_metadata(self):
-        first = message_input.prepare_item(source_item(quote={"text": "原文\n🙂"}), account_id="acct", conversation_id="friend", source_kind="wechat")
-        self.assertEqual(first, message_input.prepare_item(first, account_id="acct", conversation_id="friend", source_kind="wechat"))
+        first = message_input.prepare_item(source_item(quote={"text": "原文\n🙂"}), account_id="acct", conversation_id="friend", source_kind="qq")
+        self.assertEqual(first, message_input.prepare_item(first, account_id="acct", conversation_id="friend", source_kind="qq"))
 
 
 class InputQueueBoundaryTests(unittest.TestCase):

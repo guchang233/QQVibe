@@ -1,13 +1,13 @@
 """Unified message-input record and legacy wire projection.
 
 This module is a pure contract boundary for the future OCR extension. It does not
-read WeChat, decode media, or call any model. It normalizes an already-read source
+read QQ, decode media, or call any model. It normalizes an already-read source
 row into a typed input record and projects it back to the legacy node wire
 (``id``/``side``/``text``/``time``) plus an optional ``inputMeta`` envelope that is
 carried only over the local IPC. Meta never reaches the model prompt.
 
 Facts it relies on:
-- The WeChat source layer already emits ``time`` as integer milliseconds and already
+- The QQ source layer already emits ``time`` as integer milliseconds and already
   multiplies sub-1e10 values by 1000. ``0`` means unknown. This module never multiplies
   ``time`` again.
 - Only the current reply body is available from ``appmsg``/``title``; no quoted author,
@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import math
 
-SOURCE_KINDS = frozenset({"wechat", "ocr", "unknown"})
+SOURCE_KINDS = frozenset({"qq", "ocr", "unknown"})
 
 MAX_ACCOUNT = 200
 MAX_CONVERSATION = 256

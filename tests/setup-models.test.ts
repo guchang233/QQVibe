@@ -10,7 +10,7 @@ const data = "model-fixture-abcdefgh";
 const spec = { path: "model.onnx", bytes: Buffer.byteLength(data),
   sha256: createHash("sha256").update(data).digest("hex") };
 function fixture(t: any, force = false) {
-  const dir = mkdtempSync(path.join(os.tmpdir(), "wechatvibe-模型-download-test-"));
+  const dir = mkdtempSync(path.join(os.tmpdir(), "qqvibe-模型-download-test-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return { options: { dir, force }, dest: path.join(dir, spec.path), part: path.join(dir, spec.path + ".part") };
 }

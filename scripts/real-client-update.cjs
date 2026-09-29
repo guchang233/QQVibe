@@ -6,8 +6,8 @@ const path = require("node:path");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
 
-const RELEASE_API = "https://api.github.com/repos/tswawa/WechatVibe/releases/latest";
-const RELEASES_URL = "https://github.com/tswawa/WechatVibe/releases";
+const RELEASE_API = "https://api.github.com/repos/tswawa/QQVibe/releases/latest";
+const RELEASES_URL = "https://github.com/tswawa/QQVibe/releases";
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const MAX_MANIFEST_BYTES = 16 * 1024;
 const MAX_SUMS_BYTES = 4 * 1024;
@@ -76,7 +76,7 @@ function assessRelease(currentVersion, release) {
     return { status: current.prerelease.length ? "preview-current" : "current", latestVersion };
   }
   const assets = release.assets;
-  const packageName = `WechatVibe-${latestVersion}-windows-x64.zip`;
+  const packageName = `QQVibe-${latestVersion}-windows-x64.zip`;
   const required = [["update-manifest.json", MAX_MANIFEST_BYTES],
     ["update-manifest.sig", 64], [packageName, MAX_ARCHIVE_BYTES],
     ["SHA256SUMS.txt", MAX_SUMS_BYTES]];
@@ -126,7 +126,7 @@ async function requestAsset(item, fetchImpl, signal) {
     checkedUrl(url);
     const response = await fetchImpl(url, {
       method: "GET", redirect: "manual", signal,
-      headers: { Accept: "application/octet-stream", "User-Agent": "WechatVibe-updater" },
+      headers: { Accept: "application/octet-stream", "User-Agent": "QQVibe-updater" },
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       if (hop === 4) throw new UpdateError("invalid-release", "too many redirects");
@@ -195,11 +195,11 @@ function verifySignedManifest(raw, signature, version, archiveAsset, publicKey) 
   let manifest;
   try { manifest = JSON.parse(raw.toString("utf8")); }
   catch (_) { throw new UpdateError("invalid-release", "manifest JSON invalid"); }
-  const expectedName = "WechatVibe-" + version + "-windows-x64.zip";
+  const expectedName = "QQVibe-" + version + "-windows-x64.zip";
   if (!exactKeys(manifest, ["schema", "product", "version", "platform", "arch", "layout",
         "dataSchema", "archive"]) ||
       !exactKeys(manifest.archive, ["name", "size", "sha256"]) ||
-      manifest.schema !== 1 || manifest.product !== "WechatVibe" ||
+      manifest.schema !== 1 || manifest.product !== "QQVibe" ||
       manifest.version !== version || manifest.platform !== "win32" ||
       manifest.arch !== "x64" || manifest.layout !== "win-unpacked" ||
       manifest.dataSchema !== "real-client-v1" || manifest.archive.name !== expectedName ||
@@ -247,7 +247,7 @@ async function discover(currentVersion, options = {}) {
     const response = await fetchImpl(RELEASE_API, {
       method: "GET", redirect: "error", signal: abort.signal,
       headers: {
-        Accept: "application/vnd.github+json", "User-Agent": "WechatVibe-update-check",
+        Accept: "application/vnd.github+json", "User-Agent": "QQVibe-update-check",
         "X-GitHub-Api-Version": "2022-11-28",
       },
     });
@@ -264,7 +264,7 @@ async function discover(currentVersion, options = {}) {
   const assessment = assessRelease(currentVersion, release);
   if (assessment.status !== "available") return { assessment };
   const version = assessment.latestVersion;
-  const archiveAsset = asset(release, "WechatVibe-" + version + "-windows-x64.zip");
+  const archiveAsset = asset(release, "QQVibe-" + version + "-windows-x64.zip");
   const manifestAsset = asset(release, "update-manifest.json");
   const signatureAsset = asset(release, "update-manifest.sig");
   const sumsAsset = asset(release, "SHA256SUMS.txt");
@@ -358,7 +358,7 @@ async function downloadAndStageUpdate(currentVersion, installRoot, onProgress, o
   }
   const root = await fs.promises.realpath(installRoot);
   const parent = path.dirname(root);
-  const workDir = await fs.promises.mkdtemp(path.join(parent, ".wechatvibe-update-"));
+  const workDir = await fs.promises.mkdtemp(path.join(parent, ".qqvibe-update-"));
   const archivePath = path.join(workDir, discovered.archiveAsset.name);
   const candidatePath = path.join(workDir, "win-unpacked");
   try {
@@ -374,12 +374,12 @@ async function downloadAndStageUpdate(currentVersion, installRoot, onProgress, o
       cwd: workDir, windowsHide: true, timeout: options.extractTimeoutMs || 20 * 60 * 1000,
       maxBuffer: 16 * 1024,
     });
-    const exe = await fs.promises.stat(path.join(candidatePath, "WechatVibe.exe"));
+    const exe = await fs.promises.stat(path.join(candidatePath, "QQVibe.exe"));
     if (!exe.isFile() || exe.size === 0) throw new UpdateError("invalid-release", "candidate executable missing");
     return { candidatePath, expectedVersion: discovered.assessment.latestVersion, workDir };
   } catch (error) {
     // mkdtemp created this exact sibling directory; never remove the installation.
-    if (path.dirname(workDir) === parent && path.basename(workDir).startsWith(".wechatvibe-update-")) {
+    if (path.dirname(workDir) === parent && path.basename(workDir).startsWith(".qqvibe-update-")) {
       await removeOwnedTree(workDir);
     }
     throw error;

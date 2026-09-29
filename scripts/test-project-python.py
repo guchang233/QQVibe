@@ -9,7 +9,7 @@ import project_python as selector
 
 class ProjectPythonTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix="wechatvibe-python-selector-")
+        self.temp = tempfile.TemporaryDirectory(prefix="qqvibe-python-selector-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.relative = Path("Scripts/python.exe") if os.name == "nt" else Path("bin/python")
@@ -24,11 +24,11 @@ class ProjectPythonTests(unittest.TestCase):
         self.assertEqual(selector.select_python(), self.project)
 
     def test_explicit_override(self):
-        with patch.dict(os.environ, {"WECHATVIBE_PYTHON": sys.executable}):
+        with patch.dict(os.environ, {"QQVIBE_PYTHON": sys.executable}):
             self.assertEqual(selector.select_python(), Path(sys.executable).resolve())
 
     def test_invalid_override_fails_closed(self):
-        with patch.dict(os.environ, {"WECHATVIBE_PYTHON": str(self.root / "missing.exe")}):
+        with patch.dict(os.environ, {"QQVIBE_PYTHON": str(self.root / "missing.exe")}):
             with self.assertRaises(FileNotFoundError): selector.select_python()
 
     def test_active_virtualenv_takes_precedence(self):

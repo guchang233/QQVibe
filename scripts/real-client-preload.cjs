@@ -1,27 +1,27 @@
 const { contextBridge, ipcRenderer } = require("electron");
-const updateValidationMode = process.env.WECHATVIBE_UPDATE_VALIDATE === "1";
+const updateValidationMode = process.env.QQVIBE_UPDATE_VALIDATE === "1";
 const updateFinalReadyMode = !updateValidationMode &&
-  typeof process.env.WECHATVIBE_UPDATE_FINAL_READY_FILE === "string" &&
-  typeof process.env.WECHATVIBE_UPDATE_FINAL_READY_NONCE === "string";
+  typeof process.env.QQVIBE_UPDATE_FINAL_READY_FILE === "string" &&
+  typeof process.env.QQVIBE_UPDATE_FINAL_READY_NONCE === "string";
 
 ipcRenderer.on("real-client:bridge-restored", () => {
-  window.dispatchEvent(new Event("wechatvibe-service-restored"));
+  window.dispatchEvent(new Event("qqvibe-service-restored"));
 });
 ipcRenderer.on("real-client:update-state", (_event, state) => {
   if (state && typeof state === "object")
-    window.dispatchEvent(new CustomEvent("wechatvibe-update-state", { detail: state }));
+    window.dispatchEvent(new CustomEvent("qqvibe-update-state", { detail: state }));
 });
 ipcRenderer.on("real-client:model-download-state", (_event, state) => {
   if (state && typeof state === "object")
-    window.dispatchEvent(new CustomEvent("wechatvibe-model-download-state", { detail: state }));
+    window.dispatchEvent(new CustomEvent("qqvibe-model-download-state", { detail: state }));
 });
 
 const DOC_URLS = new Set([
   "https://www.myersbriggs.org/my-mbti-personality-type/the-mbti-preferences/",
   "https://www.themyersbriggs.com/en-US/Products-and-Services/Myers-Briggs",
   "https://github.com/tswawa",
-  "https://github.com/tswawa/WechatVibe",
-  "https://github.com/tswawa/WechatVibe/releases",
+  "https://github.com/tswawa/QQVibe",
+  "https://github.com/tswawa/QQVibe/releases",
 ]);
 
 document.addEventListener("click", (event) => {

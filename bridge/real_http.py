@@ -14,14 +14,14 @@ from urllib.parse import parse_qs, urlsplit
 
 from backend_contracts import ForecastRequestError, ROOT
 from backend_service import Backend
-from wechat_source import WeChatSource
+from qq_source import QQSource
 from account_store import AccountConflict, AccountNotFound
 from instance_identity import default_port, instance_id
 from model_source import ModelSourceUnavailable
 
 CHATUI = ROOT / "chatui"
-CONTROL_TOKEN_ENV = "WECHATVIBE_CONTROL_TOKEN"
-CONTROL_TOKEN_HEADER = "X-WechatVibe-Control-Token"
+CONTROL_TOKEN_ENV = "QQVIBE_CONTROL_TOKEN"
+CONTROL_TOKEN_HEADER = "X-QQVibe-Control-Token"
 
 
 def app_version():
@@ -371,10 +371,10 @@ def make_handler(backend, accounts=None, control_token=None):
     return Handler
 
 
-def main(classifier):
+def main():
     from account_api import AccountAPI
     control_token = os.environ.pop(CONTROL_TOKEN_ENV, None)
-    backend = Backend(WeChatSource(classifier=classifier))
+    backend = Backend(QQSource())
     port = integer(os.environ.get("CHATUI_PORT"), default_port(ROOT), 65535)
     accounts = AccountAPI(backend, ROOT / ".local" / "real-client-data")
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(backend, accounts, control_token))

@@ -42,7 +42,7 @@ function fixture(markerPresent, healthMode = 'offline') {
     module,
     require: name => ({ 'node:child_process': fakeChild, 'node:fs': fakeFs,
       'node:http': fakeHttp, 'node:path': path })[name],
-    process: { env: { WECHATVIBE_PYTHON: 'python' } },
+    process: { env: { QQVIBE_PYTHON: 'python' } },
     URL,
     setInterval: callback => { tick = callback; return { unref() {} }; },
     clearInterval: () => {},

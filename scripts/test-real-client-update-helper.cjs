@@ -1,7 +1,7 @@
 "use strict";
 
 // Isolated filesystem fixtures only. No Electron, Python, registry, listener,
-// installed client, or source WeChat database is used.
+// installed client, or source QQ database is used.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -19,24 +19,24 @@ function put(file, content = "fixture") {
   fs.writeFileSync(file, content);
 }
 function buildClient(root, version, withLocal = false) {
-  put(path.join(root, "WechatVibe.exe"));
+  put(path.join(root, "QQVibe.exe"));
   put(path.join(root, "resources", "app.asar"));
   put(path.join(root, "resources", "client", "package.json"),
-    JSON.stringify({ name: "wechatvibe-runtime", version }));
+    JSON.stringify({ name: "qqvibe-runtime", version }));
   put(path.join(root, "resources", "client", "runtime", "python", "python.exe"));
   put(path.join(root, "resources", "client", "scripts", "start-real-client.py"));
   if (withLocal) put(path.join(root, "resources", "client", ".local", "account", "saved.db"), "private bytes");
 }
 function fixture() {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "wechatvibe-helper-test-"));
-  const installRoot = path.join(parent, "WechatVibe");
-  const workDir = path.join(parent, ".wechatvibe-update-fixture");
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "qqvibe-helper-test-"));
+  const installRoot = path.join(parent, "QQVibe");
+  const workDir = path.join(parent, ".qqvibe-update-fixture");
   const candidatePath = path.join(workDir, "win-unpacked");
   buildClient(installRoot, OLD, true);
   buildClient(candidatePath, NEW);
   put(path.join(workDir, "helper", "node.exe"));
   put(path.join(workDir, "helper", "real-client-update-helper.cjs"));
-  put(path.join(workDir, `WechatVibe-${NEW}-windows-x64.zip`), "verified fixture archive");
+  put(path.join(workDir, `QQVibe-${NEW}-windows-x64.zip`), "verified fixture archive");
   const op = { schema: 1, action: "install", installRoot, candidatePath, workDir,
     expectedVersion: NEW, previousVersion: OLD, parentPid: 99999,
     port: 45678, instanceId: "a".repeat(64) };
@@ -78,7 +78,7 @@ function rollbackOp(f) {
   return { op, file };
 }
 function nextUpdate(f, suffix, expectedVersion) {
-  const workDir = path.join(f.parent, `.wechatvibe-update-${suffix}`);
+  const workDir = path.join(f.parent, `.qqvibe-update-${suffix}`);
   const candidatePath = path.join(workDir, "win-unpacked");
   buildClient(candidatePath, expectedVersion);
   put(path.join(workDir, "helper", "node.exe"));
@@ -91,7 +91,7 @@ function nextUpdate(f, suffix, expectedVersion) {
 }
 function historicalWork(f, suffix, { installRoot = f.op.installRoot,
   phase = "succeeded", guiStarted = true, restoreGuiStarted } = {}) {
-  const workDir = path.join(f.parent, `.wechatvibe-update-${suffix}`);
+  const workDir = path.join(f.parent, `.qqvibe-update-${suffix}`);
   const candidatePath = path.join(workDir, "win-unpacked");
   put(path.join(workDir, "helper", "node.exe"));
   put(path.join(workDir, "helper", "real-client-update-helper.cjs"));
@@ -113,15 +113,15 @@ function ageJournal(workDir, timestamp) {
 function cleanup(parent) {
   const absolute = path.resolve(parent);
   if (path.dirname(absolute) !== path.resolve(os.tmpdir()) ||
-      !path.basename(absolute).startsWith("wechatvibe-helper-test-")) {
+      !path.basename(absolute).startsWith("qqvibe-helper-test-")) {
     throw new Error("unsafe fixture cleanup path");
   }
   fs.rmSync(absolute, { recursive: true, force: true });
 }
 async function main() {
   {
-    const op = { workDir: path.join(os.tmpdir(), ".wechatvibe-update-fixture") };
-    const name = "WechatVibeUpdate-.wechatvibe-update-fixture";
+    const op = { workDir: path.join(os.tmpdir(), ".qqvibe-update-fixture") };
+    const name = "QQVibeUpdate-.qqvibe-update-fixture";
     const key = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce";
     assert.equal(runOnceAbsent(op, () => `${key}\n    ${name}    REG_SZ    recover\n`), false);
     assert.equal(runOnceAbsent(op, () => `${key}\n    AnotherValue    REG_SZ    command\n`), true);
@@ -142,14 +142,14 @@ async function main() {
     child.pid = 77776;
     let unrefed = false;
     child.unref = () => { unrefed = true; };
-    const root = path.join(os.tmpdir(), "wechatvibe-visible-launch-fixture");
+    const root = path.join(os.tmpdir(), "qqvibe-visible-launch-fixture");
     const result = await launchClient(root, (program, args, options) => {
-      assert.equal(program, path.join(root, "WechatVibe.exe"));
+      assert.equal(program, path.join(root, "QQVibe.exe"));
       assert.deepEqual(args, []);
       assert.equal(options.detached, true);
       assert.notEqual(options.windowsHide, true);
-      assert.equal(options.env.WECHATVIBE_UPDATE_VALIDATE, undefined);
-      assert.equal(options.env.WECHATVIBE_UPDATE_READY_FILE, undefined);
+      assert.equal(options.env.QQVIBE_UPDATE_VALIDATE, undefined);
+      assert.equal(options.env.QQVIBE_UPDATE_READY_FILE, undefined);
       process.nextTick(() => child.emit("spawn"));
       return child;
     });
@@ -179,12 +179,12 @@ async function main() {
       child.pid = 77777;
       const spawned = await launchValidation(f.op.candidatePath, f.op, readyFile, nonce,
         (program, args, options) => {
-          assert.equal(program, path.join(f.op.candidatePath, "WechatVibe.exe"));
+          assert.equal(program, path.join(f.op.candidatePath, "QQVibe.exe"));
           assert.deepEqual(args, []);
-          assert.equal(options.env.WECHATVIBE_UPDATE_VALIDATE, "1");
+          assert.equal(options.env.QQVIBE_UPDATE_VALIDATE, "1");
           assert.notEqual(options.windowsHide, true);
-          assert.equal(options.env.WECHATVIBE_UPDATE_READY_FILE, readyFile);
-          assert.equal(options.env.WECHATVIBE_UPDATE_READY_NONCE, nonce);
+          assert.equal(options.env.QQVIBE_UPDATE_READY_FILE, readyFile);
+          assert.equal(options.env.QQVIBE_UPDATE_READY_NONCE, nonce);
           process.nextTick(() => child.emit("spawn"));
           return child;
         });
@@ -212,12 +212,12 @@ async function main() {
       child.pid = 88888;
       const spawned = await launchFinalClient(f.op.candidatePath, f.op, readyFile, nonce,
         (program, args, options) => {
-          assert.equal(program, path.join(f.op.candidatePath, "WechatVibe.exe"));
+          assert.equal(program, path.join(f.op.candidatePath, "QQVibe.exe"));
           assert.deepEqual(args, []);
           assert.equal(options.windowsHide, undefined);
-          assert.equal(options.env.WECHATVIBE_UPDATE_FINAL_READY_FILE, readyFile);
-          assert.equal(options.env.WECHATVIBE_UPDATE_FINAL_READY_NONCE, nonce);
-          assert.equal(options.env.WECHATVIBE_UPDATE_VALIDATE, undefined);
+          assert.equal(options.env.QQVIBE_UPDATE_FINAL_READY_FILE, readyFile);
+          assert.equal(options.env.QQVIBE_UPDATE_FINAL_READY_NONCE, nonce);
+          assert.equal(options.env.QQVIBE_UPDATE_VALIDATE, undefined);
           process.nextTick(() => child.emit("spawn"));
           return child;
         });
@@ -325,7 +325,7 @@ async function main() {
       assert.equal(fs.readFileSync(path.join(f.op.installRoot, "resources", "client", ".local",
         "account", "saved.db"), "utf8"), "private bytes");
       assert.equal(JSON.parse(fs.readFileSync(path.join(f.op.workDir, "journal.json"))).phase, "succeeded");
-      assert.equal(fs.existsSync(path.join(f.op.workDir, `WechatVibe-${NEW}-windows-x64.zip`)), false);
+      assert.equal(fs.existsSync(path.join(f.op.workDir, `QQVibe-${NEW}-windows-x64.zip`)), false);
       assert(d.calls.indexOf("setRunOnce") < d.calls.indexOf("launchFinalClient"));
       assert(d.calls.indexOf("healthy") < d.calls.indexOf("launchFinalClient"));
       assert(d.calls.indexOf("waitForValidation") < d.calls.indexOf("launchFinalClient"));
@@ -376,7 +376,7 @@ async function main() {
       assert.equal(versionAt(f.op.installRoot), OLD);
       assert.equal(versionAt(path.join(f.op.workDir, "failed-candidate")), NEW);
       assert.equal(JSON.parse(fs.readFileSync(path.join(f.op.workDir, "journal.json"))).phase, "rolled_back");
-      assert.equal(fs.existsSync(path.join(f.op.workDir, `WechatVibe-${NEW}-windows-x64.zip`)), false);
+      assert.equal(fs.existsSync(path.join(f.op.workDir, `QQVibe-${NEW}-windows-x64.zip`)), false);
     } finally { cleanup(f.parent); }
   }
   {

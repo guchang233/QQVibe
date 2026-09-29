@@ -21,19 +21,19 @@ SCRIPTS = (
 BRIDGE = (
     "account_api.py", "account_store.py", "conversation_selection.py",
     "analysis_server.ts", "batch_engine.py",
-    "batch_state.py", "cache_source.py", "chat_server.py", "history_browser.py",
-    "instance_identity.py", "live_source.py", "model_source.py", "model_bundle.py",
+    "batch_state.py", "chat_server.py", "history_browser.py",
+    "instance_identity.py", "model_source.py", "model_bundle.py",
     "local_model_source.py", "model_install.py", "profile_signals.py", "profile_state.py",
     "backend_contracts.py", "backend_service.py", "message_results.py", "message_contracts.py",
     "message_input.py", "portrait_contracts.py", "api_tasks.py", "node_analysis.py",
     "result_store.py",
-    "wechat_source.py", "real_backend.py", "real_http.py", "snapshot_cache.py", "wechat_bridge.py",
+    "qq_source.py", "qq_client.py", "qqnt_install.py", "real_backend.py", "real_http.py",
     "windows_file_owners.py",
 )
-NATIVE_READER = (
-    "__init__.py", "crypto.py", "database.py", "discovery.py", "errors.py",
-    "fixture.py", "log.py", "png_encode.py", "protocol.py", "service.py",
-    "snapshot.py", "wal.py", "window.py", "window_capture.py", "window_uia.py",
+QQNT = (
+    "package.json", "loadQqnt.js",
+    "src/index.js", "src/paths.js", "src/wrapper.js", "src/elements.js",
+    "src/reader.js", "src/server.js",
 )
 LAYA = (
     "agent.ts", "calibration.ts", "catalog.ts", "context.ts", "expression.ts",
@@ -55,13 +55,12 @@ if _model_manifest.get("schema") != 1 or set(MODEL_FILES) != set(MODEL_PINS):
 PUBLIC_FILES = (
     "LICENSE", "THIRD_PARTY_NOTICES.md", "README.md", "chatui/index.html",
     "chatui/app.js", "chatui/message-labels.js", "chatui/message-insight-adapters.js", "chatui/view-state.js", "chatui/style.css", "chatui/kaomoji.js",
-    "chatui/data/analysis-catalog.json", "chatui/assets/wechatvibe-icon.png",
-    "chatui/assets/wechatvibe-icon.ico", "electron/analysis.ts",
+    "chatui/data/analysis-catalog.json", "chatui/assets/qqvibe-icon.png",
+    "chatui/assets/qqvibe-icon.ico", "electron/analysis.ts",
     "electron/model-connectors.ts", "electron/api-insights.ts",
     "electron/api-message-insights.ts", "electron/api-portrait.ts", "electron/api-analysis-json.ts",
     "electron/local-message-insights.ts",
     "shared/contracts.ts", "shared/message-input.ts", "src/lib/labels.ts",
-    "native-reader/THIRD_PARTY_NOTICES.md",
 )
 
 
@@ -147,7 +146,7 @@ def public_mappings(source: Path, models: Path) -> list[tuple[Path, Path, Path]]
     project_files = [Path(name) for name in PUBLIC_FILES]
     project_files += [Path("scripts") / name for name in SCRIPTS]
     project_files += [Path("bridge") / name for name in BRIDGE]
-    project_files += [Path("native-reader/wr") / name for name in NATIVE_READER]
+    project_files += [Path("qqnt") / name for name in QQNT]
     project_files += [Path("electron/laya") / name for name in LAYA]
     mappings = [(source / relative, relative, source) for relative in project_files]
     mappings += [(models / Path(name), Path(".models/laya") / name, models)
@@ -190,7 +189,7 @@ def stage_public(source: Path, models: Path, output: Path) -> dict:
             raise ValueError(f"client input changed while staging: {relative.as_posix()}")
         rows.append({"file": relative.as_posix(), "bytes": length, "sha256": checksum})
     metadata = output / "package.json"
-    metadata.write_text(json.dumps({"name": "wechatvibe-runtime", "version": version,
+    metadata.write_text(json.dumps({"name": "qqvibe-runtime", "version": version,
                                     "private": True, "type": "module"}, indent=2) + "\n",
                         encoding="utf-8")
     rows.append({"file": "package.json", "bytes": metadata.stat().st_size,

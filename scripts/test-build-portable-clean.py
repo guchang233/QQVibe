@@ -25,7 +25,7 @@ builder = load("build_portable_clean", "build-portable-clean.py")
 
 class CleanPortableBuildTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix="wechatvibe-clean-build-test-")
+        self.temporary = tempfile.TemporaryDirectory(prefix="qqvibe-clean-build-test-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.source = self.root / "source"
@@ -35,7 +35,7 @@ class CleanPortableBuildTests(unittest.TestCase):
         self.source.mkdir()
         self.models.mkdir()
         self.build.mkdir()
-        self.put(self.source / "package.json", b'{"name":"wechatvibe","version":"1.0.2-preview.2"}')
+        self.put(self.source / "package.json", b'{"name":"qqvibe","version":"1.0.2-preview.2"}')
         self.put(self.source / "chatui/index.html", b"<html>reviewed</html>")
         self.put(self.source / "scripts/real-client-update-helper.cjs", b"helper")
         self.put(self.source / "scripts/real-client-update-extract.py", b"extractor")
@@ -56,7 +56,7 @@ class CleanPortableBuildTests(unittest.TestCase):
                                                     "real-client-update-extract.py",
                                                     "update-signing.pub")),
             mock.patch.object(stage, "BRIDGE", ("chat_server.py", "conversation_selection.py")),
-            mock.patch.object(stage, "NATIVE_READER", ()),
+            mock.patch.object(stage, "QQNT", ()),
             mock.patch.object(stage, "LAYA", ()),
             mock.patch.object(stage, "MODEL_FILES", ("model.onnx",)),
             mock.patch.object(stage, "MODEL_PINS", {
@@ -127,7 +127,7 @@ class CleanPortableBuildTests(unittest.TestCase):
         stage.stage_public(self.source, self.models, self.client)
         unpacked = self.build / "release/win-unpacked"
         shutil.copytree(self.client, unpacked / "resources/client")
-        self.put(unpacked / "WechatVibe.exe", b"MZsynthetic")
+        self.put(unpacked / "QQVibe.exe", b"MZsynthetic")
         self.put(unpacked / "resources/app.asar", b"synthetic")
         with mock.patch.object(builder, "verify_asar") as asar:
             result = builder.verify_package(self.source, self.build, self.source / "node.exe")
@@ -185,7 +185,7 @@ class CleanPortableBuildTests(unittest.TestCase):
             expected[name.casefold()] = self.row(app_dir, name)
         version = json.loads((builder.ROOT / "package.json").read_text(encoding="utf-8"))["version"]
         self.put(app_dir / "package.json", json.dumps({
-            "name": "wechatvibe", "version": version, "main": "scripts/desktop-main.cjs",
+            "name": "qqvibe", "version": version, "main": "scripts/desktop-main.cjs",
         }).encode())
         unpacked = self.root / "synthetic-unpacked"
         archive = unpacked / "resources/app.asar"

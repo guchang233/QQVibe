@@ -14,5 +14,4 @@ pywin32==311
 setuptools==80.9.0
 tzdata==2025.2
 uiautomation==2.0.29
-wechatauto-replica==1.2.2.6
 zstandard==0.25.0

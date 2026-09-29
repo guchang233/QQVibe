@@ -7,8 +7,8 @@ const { checkForUpdates, downloadAndStageUpdate, errorStatus, RELEASES_URL } = r
 const { createUpdateProxyFetch } = require("./real-client-update-proxy.cjs");
 const { ModelDownload, ownedDirectory } = require("./real-client-model.cjs");
 
-const ROOT = process.env.WECHATVIBE_CLIENT_ROOT ?
-  path.resolve(process.env.WECHATVIBE_CLIENT_ROOT) : path.resolve(__dirname, "..");
+const ROOT = process.env.QQVIBE_CLIENT_ROOT ?
+  path.resolve(process.env.QQVIBE_CLIENT_ROOT) : path.resolve(__dirname, "..");
 const THEMES = Object.freeze({
   dark: { color: "#1b1b1b", symbolColor: "#e6e7eb", height: 36 },
   light: { color: "#edf3f7", symbolColor: "#28333d", height: 36 },
@@ -17,7 +17,7 @@ const DOC_URLS = new Set([
   "https://www.myersbriggs.org/my-mbti-personality-type/the-mbti-preferences/",
   "https://www.themyersbriggs.com/en-US/Products-and-Services/Myers-Briggs",
   "https://github.com/tswawa",
-  "https://github.com/tswawa/WechatVibe",
+  "https://github.com/tswawa/QQVibe",
   RELEASES_URL,
 ]);
 
@@ -35,20 +35,20 @@ function argument(name) {
 
 const url = clientUrl(argument("--client-url"));
 const selfTest = process.argv.includes("--self-test");
-const instanceId = process.env.WECHATVIBE_INSTANCE_ID;
-const updateValidation = process.env.WECHATVIBE_UPDATE_VALIDATE === "1";
+const instanceId = process.env.QQVIBE_INSTANCE_ID;
+const updateValidation = process.env.QQVIBE_UPDATE_VALIDATE === "1";
 const updateFinalReady = !updateValidation &&
-  typeof process.env.WECHATVIBE_UPDATE_FINAL_READY_FILE === "string" &&
-  typeof process.env.WECHATVIBE_UPDATE_FINAL_READY_NONCE === "string";
-const updateReadyFile = updateValidation ? process.env.WECHATVIBE_UPDATE_READY_FILE :
-  process.env.WECHATVIBE_UPDATE_FINAL_READY_FILE;
-const updateReadyNonce = updateValidation ? process.env.WECHATVIBE_UPDATE_READY_NONCE :
-  process.env.WECHATVIBE_UPDATE_FINAL_READY_NONCE;
+  typeof process.env.QQVIBE_UPDATE_FINAL_READY_FILE === "string" &&
+  typeof process.env.QQVIBE_UPDATE_FINAL_READY_NONCE === "string";
+const updateReadyFile = updateValidation ? process.env.QQVIBE_UPDATE_READY_FILE :
+  process.env.QQVIBE_UPDATE_FINAL_READY_FILE;
+const updateReadyNonce = updateValidation ? process.env.QQVIBE_UPDATE_READY_NONCE :
+  process.env.QQVIBE_UPDATE_FINAL_READY_NONCE;
 if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test(instanceId || ""))) {
   process.stderr.write("real-client shell requires Windows and a validated loopback URL\n");
   app.exit(1);
 } else {
-  app.setAppUserModelId("com.local.wechatvibe.real-client");
+  app.setAppUserModelId("com.local.qqvibe.real-client");
   const userData = path.join(ROOT, ".local", selfTest ? "real-client-shell-self-test" : "real-client-shell");
   fs.mkdirSync(userData, { recursive: true });
   app.setPath("userData", userData);
@@ -59,7 +59,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
   let exiting = false;
   // Set by desktop-main: only the launch that created the bridge may stop it on a
   // startup failure. A reused ready bridge must survive a failed shell start.
-  const bridgeCreated = process.env.WECHATVIBE_BRIDGE_CREATED === "1";
+  const bridgeCreated = process.env.QQVIBE_BRIDGE_CREATED === "1";
   let startupFailed = false;
   let updateHandoff = "none";
   let quitRequestedDuringHandoff = false;
@@ -206,7 +206,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
         const workDir = path.dirname(path.resolve(updateReadyFile));
         const parent = path.dirname(installRoot);
         if (path.dirname(workDir).toLowerCase() !== parent.toLowerCase() ||
-            !path.basename(workDir).startsWith(".wechatvibe-update-") ||
+            !path.basename(workDir).startsWith(".qqvibe-update-") ||
             !/^ui-(?:final-)?ready-[a-f0-9-]{20,80}\.json$/.test(path.basename(updateReadyFile)) ||
             fs.lstatSync(workDir).isSymbolicLink() ||
             fs.realpathSync.native(workDir).toLowerCase() !== workDir.toLowerCase()) return false;
@@ -264,7 +264,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
       if (bridgeExitState === "running") return;
       bridgeExitState = "running";
       const bundledPython = path.join(ROOT, "runtime", "python", "python.exe");
-      const python = process.env.WECHATVIBE_PYTHON ||
+      const python = process.env.QQVIBE_PYTHON ||
         (fs.existsSync(bundledPython) ? bundledPython : "python");
       const launcher = path.join(ROOT, "scripts", "start-real-client.py");
       const finish = (error, stdout) => {
@@ -275,7 +275,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
           stopped = !error && (result.stopped === true || result.alreadyStopped === true);
         } catch (_) { /* A missing result is a shutdown failure. */ }
         if (!stopped) {
-          dialog.showErrorBox("WechatVibe 退出提示",
+          dialog.showErrorBox("QQVibe 退出提示",
             "本地分析服务未能安全关闭，程序文件可能仍被占用。请在任务管理器中检查此安装目录的后台进程。");
         }
         app.quit();
@@ -285,7 +285,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
           execFile(python, [launcher, "--stop-owned-bridge", "--json"], {
             cwd: ROOT, windowsHide: true, timeout: 90000, maxBuffer: 65536,
             env: { ...process.env, CHATUI_PORT: String(new URL(url).port),
-              WECHATVIBE_CLIENT_ROOT: ROOT, WECHATVIBE_PYTHON: python },
+              QQVIBE_CLIENT_ROOT: ROOT, QQVIBE_PYTHON: python },
           }, finish);
         } catch (error) {
           finish(error, "");
@@ -299,7 +299,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
         ProxyAgent: require(path.join(ROOT, "node_modules", "undici")).ProxyAgent,
       });
       modelDownload = new ModelDownload({
-        root: ROOT, python: process.env.WECHATVIBE_PYTHON || path.join(ROOT, "runtime", "python", "python.exe"),
+        root: ROOT, python: process.env.QQVIBE_PYTHON || path.join(ROOT, "runtime", "python", "python.exe"),
         fetchImpl: updateNetwork.fetchImpl,
         enableFallback: () => updateNetwork.enableSavedLoopbackFallback(),
         onState: state => {
@@ -322,7 +322,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
         height: 780,
         minWidth: 720,
         minHeight: 520,
-        icon: path.join(ROOT, "chatui", "assets", "wechatvibe-icon.ico"),
+        icon: path.join(ROOT, "chatui", "assets", "qqvibe-icon.ico"),
         show: !selfTest,
         resizable: true,
         titleBarStyle: "hidden",
@@ -431,7 +431,7 @@ if (process.platform !== "win32" || !url || (!selfTest && !/^[a-f0-9]{64}$/.test
     }).catch((error) => {
       process.stderr.write(String(error) + "\n");
       startupFailed = true;
-      dialog.showErrorBox("WechatVibe 启动失败", "客户端窗口初始化失败，请重新解压完整安装包。");
+      dialog.showErrorBox("QQVibe 启动失败", "客户端窗口初始化失败，请重新解压完整安装包。");
       // Use normal shutdown so the bridge created before window initialization
       // is stopped instead of becoming an invisible background process. A reused
       // bridge is left alone by the before-quit guard.

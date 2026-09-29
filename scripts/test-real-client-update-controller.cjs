@@ -32,11 +32,11 @@ async function checkJunctionParent(parent) {
   fs.symlinkSync(physicalParent, alias, process.platform === "win32" ? "junction" : "dir");
   assert.notEqual(path.resolve(root), fs.realpathSync.native(root));
 
-  const workDir = path.join(physicalParent, ".wechatvibe-update-staged");
+  const workDir = path.join(physicalParent, ".qqvibe-update-staged");
   const candidatePath = path.join(workDir, "win-unpacked");
-  put(path.join(candidatePath, "WechatVibe.exe"));
-  const rollbackWork = path.join(physicalParent, ".wechatvibe-update-previous");
-  put(path.join(rollbackWork, "backup", "WechatVibe.exe"));
+  put(path.join(candidatePath, "QQVibe.exe"));
+  const rollbackWork = path.join(physicalParent, ".qqvibe-update-previous");
+  put(path.join(rollbackWork, "backup", "QQVibe.exe"));
   put(path.join(rollbackWork, "journal.json"), JSON.stringify({
     schema: 1, phase: "succeeded", installRoot,
     expectedVersion: "1.2.0", previousVersion: "1.0.4",
@@ -104,7 +104,7 @@ async function checkJunctionParent(parent) {
   assert.equal(controller.getState().rollbackVersion, "1.0.4");
 
   const outsideCandidate = path.join(parent, "越界候选目录");
-  put(path.join(outsideCandidate, "WechatVibe.exe"));
+  put(path.join(outsideCandidate, "QQVibe.exe"));
   const rejected = moduleStub.exports.createUpdateController({
     ...options,
     stageImpl: async () => ({ candidatePath: outsideCandidate, workDir, expectedVersion: "1.2.1" }),
@@ -119,21 +119,21 @@ async function checkJunctionParent(parent) {
 }
 
 async function main() {
-  const parent = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "wechatvibe-controller-")));
+  const parent = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "qqvibe-controller-")));
   try {
-    const installRoot = path.join(parent, "WechatVibe");
+    const installRoot = path.join(parent, "QQVibe");
     const clientRoot = path.join(installRoot, "resources", "client");
     fs.mkdirSync(clientRoot, { recursive: true });
-    const work = path.join(parent, ".wechatvibe-update-valid");
+    const work = path.join(parent, ".qqvibe-update-valid");
     fs.mkdirSync(path.join(work, "backup"), { recursive: true });
-    fs.writeFileSync(path.join(work, "backup", "WechatVibe.exe"), "previous binary");
+    fs.writeFileSync(path.join(work, "backup", "QQVibe.exe"), "previous binary");
     fs.writeFileSync(path.join(work, "journal.json"), JSON.stringify({
       schema: 1, phase: "succeeded", installRoot,
       expectedVersion: "1.0.2", previousVersion: "1.0.1",
     }));
-    const damaged = path.join(parent, ".wechatvibe-update-damaged");
+    const damaged = path.join(parent, ".qqvibe-update-damaged");
     fs.mkdirSync(path.join(damaged, "backup"), { recursive: true });
-    fs.writeFileSync(path.join(damaged, "backup", "WechatVibe.exe"), "wrong binary");
+    fs.writeFileSync(path.join(damaged, "backup", "QQVibe.exe"), "wrong binary");
     fs.writeFileSync(path.join(damaged, "journal.json"), JSON.stringify({
       schema: 1, phase: "succeeded", installRoot: path.join(parent, "Other"),
       expectedVersion: "1.0.2", previousVersion: "1.0.0",

@@ -29,7 +29,7 @@ PORTABLE_PYTHON = PROJECT_ROOT / "runtime" / "python" / "python.exe"
 
 def selected_python_exe(value=None):
     """Resolve a PATH command before comparing it with a running Python image."""
-    value = value if value is not None else os.environ.get("WECHATVIBE_PYTHON")
+    value = value if value is not None else os.environ.get("QQVIBE_PYTHON")
     if not value:
         return PORTABLE_PYTHON if PORTABLE_PYTHON.is_file() else Path(sys.executable)
     candidate = Path(value)
@@ -44,8 +44,8 @@ PYTHON_EXE = selected_python_exe()
 START_TIMEOUT = 20.0
 STOP_TIMEOUT = 30.0
 STOP_CLEANUP_TIMEOUT = 8.0
-CONTROL_TOKEN_ENV = "WECHATVIBE_CONTROL_TOKEN"
-CONTROL_TOKEN_HEADER = "X-WechatVibe-Control-Token"
+CONTROL_TOKEN_ENV = "QQVIBE_CONTROL_TOKEN"
+CONTROL_TOKEN_HEADER = "X-QQVibe-Control-Token"
 
 
 class LauncherError(Exception):
@@ -683,7 +683,7 @@ def open_client(url, root=PROJECT_ROOT):
     if not electron.is_file() or not script.is_file():
         raise LauncherError("Dedicated Electron shell is unavailable; install project dependencies before opening the client")
     try:
-        environment = {**os.environ, "WECHATVIBE_INSTANCE_ID": instance_id(root)}
+        environment = {**os.environ, "QQVIBE_INSTANCE_ID": instance_id(root)}
         subprocess.Popen([str(electron), str(script), "--client-url", url],
                          cwd=str(root), env=environment, close_fds=True)
     except OSError as error:

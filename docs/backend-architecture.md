@@ -1,21 +1,21 @@
 # 后端分层与分析流程
 
-本文对应 1.2.2。微信读取、模型调用、任务协调和结果存储分别管理；消息标签与人物画像使用独立入口和版本，不因调整消息标签而重新设计画像流程。
+本文对应 1.2.2。QQ读取、模型调用、任务协调和结果存储分别管理；消息标签与人物画像使用独立入口和版本，不因调整消息标签而重新设计画像流程。
 
 ## 模块职责
 
 | 模块 | 职责 | 不应承担的职责 |
 | --- | --- | --- |
 | `bridge/real_http.py` | HTTP 参数、响应和请求生命周期；组装应用服务 | SQL、模型进程管理 |
-| `bridge/backend_service.py` | 账号作用域、分析任务、画像及缓存清理协调 | 微信原库读取、底层 Node 通信 |
-| `bridge/wechat_source.py` | 当前账号校验、只读会话与消息适配 | 分析结果存储、推理任务调度 |
+| `bridge/backend_service.py` | 账号作用域、分析任务、画像及缓存清理协调 | QQ原库读取、底层 Node 通信 |
+| `bridge/qq_source.py` | 当前账号校验、只读会话与消息适配 | 分析结果存储、推理任务调度 |
 | `bridge/node_analysis.py` | Node 进程、请求与流式事件、恢复及响应处理 | 账号结果数据库访问 |
-| `bridge/result_store.py` | SQLite 结果、进度、摘要、API 缓存及事务 | 模型调用、微信原库读取 |
+| `bridge/result_store.py` | SQLite 结果、进度、摘要、API 缓存及事务 | 模型调用、QQ原库读取 |
 | `bridge/batch_engine.py` / `batch_state.py` | 本地批处理、扫描位置与批次进度 | HTTP、界面状态 |
 | `bridge/api_tasks.py` | API 任务注册、锁、运行计数与失效处理 | 业务模型调用、SQL、历史扫描 |
 | `bridge/message_contracts.py` / `portrait_contracts.py` | 消息标签与画像各自的版本、作用域和契约 | 服务、存储、运行时依赖 |
 | `bridge/message_results.py` | 本地 fine 与画像结果的纯校验 | IO、锁、调度 |
-| `bridge/message_input.py` / `shared/message-input.ts` | 消息身份、来源、时间和引用元数据的校验与兼容投影 | 微信读取、媒体解码、OCR |
+| `bridge/message_input.py` / `shared/message-input.ts` | 消息身份、来源、时间和引用元数据的校验与兼容投影 | QQ读取、媒体解码、OCR |
 | `electron/api-message-insights.ts` | API 消息提示词、标签提取与结果整理 | 画像推理、持久化 |
 | `electron/api-portrait.ts` | API 画像及画像维度分析 | 消息标签渲染 |
 | `electron/local-message-insights.ts` | 本地逐句标签的问题构造与答案处理 | 模型实例、运行环境、数据库 |
