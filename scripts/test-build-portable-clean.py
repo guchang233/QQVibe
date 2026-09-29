@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -44,6 +45,10 @@ class CleanPortableBuildTests(unittest.TestCase):
         self.put(self.source / "bridge/conversation_selection.py", b"selection")
         self.put(self.source / "bridge/unreviewed.py", b"unreviewed")
         self.put(self.source / "chat.db", b"private")
+        # Stand-in for the cargo output the bridge resolves at runtime; staging
+        # is expected to find it without being told where it is.
+        self.sidecar = self.source / "sidecar/ntqq-reader/target/release/ntqq-reader.exe"
+        self.put(self.sidecar, b"MZsynthetic-sidecar")
         self.put(self.models / "model.onnx", b"model")
         self.put(self.client / "runtime/python/python.exe", b"python")
         self.put(self.client / "node_modules/dep/index.js", b"node dependency")
@@ -61,6 +66,9 @@ class CleanPortableBuildTests(unittest.TestCase):
             mock.patch.object(stage, "MODEL_PINS", {
                 "model.onnx": (5, stage.digest(self.models / "model.onnx")),
             }),
+            # Keep the run hermetic: the resolver prefers this variable, and a
+            # developer machine may well have it set to a real sidecar.
+            mock.patch.dict(os.environ, {stage.reader.SIDECAR_EXE_ENV: ""}),
         )
         for patcher in patches:
             patcher.start()
@@ -161,6 +169,46 @@ class CleanPortableBuildTests(unittest.TestCase):
         self.assertIn("conversation_selection.py", actual_stage.BRIDGE)
         self.assertTrue((builder.ROOT / "bridge/conversation_selection.py").is_file())
 
+    # -- the sidecar binary ---------------------------------------------------
+
+    def test_sidecar_is_staged_where_the_bridge_resolves_it(self):
+        result = stage.stage_public(self.source, self.models, self.client)
+        staged = self.client / "resources/ntqq-reader/ntqq-reader.exe"
+        self.assertTrue(staged.is_file())
+        self.assertEqual(staged.read_bytes(), self.sidecar.read_bytes())
+        # The runtime lookup, not the stager, decides this path: assert they agree.
+        self.assertEqual(stage.SIDECAR_TARGET.as_posix(),
+                         "resources/ntqq-reader/ntqq-reader.exe")
+        self.assertEqual(result["sidecar"], stage.SIDECAR_TARGET.as_posix())
+        rows = {row["file"]: row for row in result["files"]}
+        self.assertEqual(rows[stage.SIDECAR_TARGET.as_posix()]["sha256"],
+                         stage.digest(self.sidecar))
+
+    def test_sidecar_that_is_not_a_windows_binary_is_rejected(self):
+        self.put(self.sidecar, b"this is not a PE image, just text")
+        with self.assertRaisesRegex(ValueError, "not a PE image"):
+            stage.stage_public(self.source, self.models, self.client)
+
+    def test_empty_sidecar_is_rejected(self):
+        self.put(self.sidecar, b"")
+        with self.assertRaisesRegex(ValueError, "sidecar executable is empty"):
+            stage.stage_public(self.source, self.models, self.client)
+
+    def test_missing_sidecar_is_refused_before_the_stage_is_written(self):
+        self.sidecar.unlink()
+        with self.assertRaisesRegex(ValueError, "sidecar was not found"):
+            stage.stage_public(self.source, self.models, self.client)
+        self.assertFalse((self.client / "resources").exists())
+
+    def test_sidecar_may_come_from_the_environment(self):
+        downloaded = self.root / "ci-artifact/ntqq-reader.exe"
+        self.put(downloaded, b"MZfrom-the-ci-artifact")
+        with mock.patch.dict(os.environ, {stage.reader.SIDECAR_EXE_ENV: str(downloaded)}):
+            stage.stage_public(self.source, self.models, self.client)
+        self.assertEqual(
+            (self.client / "resources/ntqq-reader/ntqq-reader.exe").read_bytes(),
+            b"MZfrom-the-ci-artifact")
+
     def test_runtime_stage_refuses_nonempty_directory_without_replacing_it(self):
         stale = self.root / "stale-stage"
         self.put(stale / "keep.txt", b"keep")
@@ -174,6 +222,11 @@ class CleanPortableBuildTests(unittest.TestCase):
         node = shutil.which("node")
         if node is None:
             self.skipTest("Node is unavailable")
+        if not (builder.ROOT / "node_modules/@electron/asar").is_dir():
+            # The check inspects a real archive with the real tool; without it
+            # there is nothing to assert, and a broken install is already caught
+            # by the typecheck step that runs before this one.
+            self.skipTest("@electron/asar is not installed")
         config = json.loads(builder.TEMPLATE.read_text(encoding="utf-8"))
         names = [name for name in config["files"] if name.startswith("scripts/")]
         app_dir = self.root / "synthetic-app"

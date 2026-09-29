@@ -22,6 +22,9 @@ jobs:
   build-windows:
     name: build + verify (x86_64-pc-windows-msvc)
     runs-on: windows-latest
+    # Backstop. Without it a wedged step sits for the six-hour default and tells
+    # nobody anything; the per-test timeouts above are the precise guard.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: sidecar/ntqq-reader
@@ -71,10 +74,72 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
 
-      # Single-threaded on purpose: the offset VFS is installed into a process-wide
-      # static, so the tests must not race one another registering it.
+      # One process per test, each with a hard timeout.
+      #
+      # The offset VFS is installed into a process-wide static, so a fresh process
+      # per test also removes cross-test interference entirely -- which is what the
+      # previous single-process run was trying to approximate with
+      # `--test-threads=1`. The timeout matters just as much: a test that hangs in
+      # one shared process stalls the job for its full six-hour limit and the log
+      # never names the culprit.
       - name: Unit and integration tests
-        run: cargo test --release -- --test-threads=1 --nocapture
+        id: tests
+        shell: pwsh
+        timeout-minutes: 30
+        # Deliberately not fail-fast: the release build, the fixture and the HTTP
+        # check below have their own failure modes and are far more valuable to see
+        # in the same run. The gate at the end of the job is what fails it.
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          cargo test --release --no-run
+          $binary = Get-ChildItem 'target/release/deps' -Filter 'ntqq_reader-*.exe' |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $binary) { throw 'the test binary was not produced' }
+          Write-Host "test binary: $binary"
+
+          # `--list --format terse` prints "tests::name: test", and the name itself
+          # contains colons, so only the trailing marker may be stripped.
+          $names = & $binary --list --format terse |
+            Where-Object { $_ -match ': test$' } |
+            ForEach-Object { $_ -replace ': test$', '' }
+          if ($names.Count -eq 0) { throw 'no tests were listed by the harness' }
+          Write-Host "running $($names.Count) tests, one process each"
+
+          $failed = @()
+          foreach ($name in $names) {
+            $slug = $name -replace '[^A-Za-z0-9_]', '_'
+            $stdout = Join-Path $env:RUNNER_TEMP "$slug.out"
+            $stderr = Join-Path $env:RUNNER_TEMP "$slug.err"
+            Write-Host "::group::$name"
+            $proc = Start-Process -FilePath $binary -PassThru -NoNewWindow `
+              -ArgumentList @($name, '--exact', '--nocapture', '--test-threads=1') `
+              -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            $finished = $proc.WaitForExit(120000)
+            if (-not $finished) {
+              $proc.Kill()
+              $proc.WaitForExit()
+              if (Test-Path $stderr) { Get-Content $stderr | Write-Host }
+              if (Test-Path $stdout) { Get-Content $stdout | Write-Host }
+              Write-Host "::endgroup::"
+              throw "$name did not finish within 120s; it is the test that hangs"
+            }
+            # stderr carries the SQLCipher diagnostics; stdout carries the harness line.
+            if (Test-Path $stderr) { Get-Content $stderr | Write-Host }
+            if (Test-Path $stdout) { Get-Content $stdout | Write-Host }
+            Write-Host "::endgroup::"
+            # `--exact` selects one test, so the summary line is the verdict. Reading
+            # it beats Start-Process's ExitCode, which is not reliable on Windows.
+            if (-not (Select-String -Path $stdout -Pattern 'test result: ok' -Quiet)) {
+              $failed += $name
+            }
+          }
+
+          if ($failed.Count -gt 0) {
+            throw "these tests did not pass: $($failed -join ', ')"
+          }
+          Write-Host "all $($names.Count) tests passed, each in its own process"
 
       - name: Build release binary
         run: cargo build --release
@@ -187,3 +252,13 @@ jobs:
           name: ntqq-reader-x86_64-pc-windows-msvc
           path: sidecar/ntqq-reader/target/release/ntqq-reader.exe
           if-no-files-found: error
+
+      # The test step is `continue-on-error` so that a failure there does not hide
+      # the release build, the fixture or the HTTP check. This gate is what turns a
+      # failing test into a red job, and it runs last on purpose.
+      - name: Gate on the test outcome
+        if: steps.tests.outcome != 'success'
+        shell: pwsh
+        run: |
+          Write-Error 'unit or integration tests did not pass; see the step above'
+          exit 1

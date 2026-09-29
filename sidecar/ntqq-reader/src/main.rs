@@ -775,14 +775,21 @@ mod tests {
     /// Whichever guarded mode is chosen, SQLite itself must refuse writes.
     #[test]
     fn guarded_connection_refuses_writes_at_the_sqlite_level() {
+        // stderr is unbuffered, so these markers survive a process that has to be
+        // killed: a hang is then located in the CI log instead of guessed at.
+        eprintln!("[guard] registering the offset vfs");
         register_offset_vfs().expect("register offset vfs");
         let dir = TempDir::new("guard");
         let db = dir.path().join("nt_msg.db");
+        eprintln!("[guard] seeding a rollback-journal database");
         seed_encrypted_db(&db, "HMAC_SHA1", false);
         add_ntqq_header(&db);
 
+        eprintln!("[guard] opening through the write guard");
         let (conn, mode) = open_database(dir.path(), "nt_msg", KEY, false).expect("open");
+        eprintln!("[guard] opened in mode {}", mode.as_str());
         let attempted = conn.execute("DELETE FROM c2c_msg_table", []);
+        eprintln!("[guard] DELETE returned {attempted:?}");
         assert!(
             attempted.is_err(),
             "mode {} allowed a DELETE; the write guard is broken",

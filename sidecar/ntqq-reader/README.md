@@ -100,11 +100,18 @@ Perl on Windows. CI (`.github/workflows/sidecar.yml`) installs both and runs the
 full suite on `windows-latest`.
 
 ```
-cargo test --release -- --test-threads=1 --nocapture
+cargo test --release
 ```
 
-`--test-threads=1` is required: `register_offset_vfs` installs the VFS into a
-process-wide static, so parallel tests would race it.
+CI runs each test in its own process with a 120-second timeout. That is not only
+defensive: `register_offset_vfs` installs the VFS into a process-wide static, so
+isolation removes cross-test interference outright — and a test that hangs in one
+shared process takes the whole job down without ever naming itself.
+
+`scripts/stage-real-client.py` packages the release build. It resolves the binary
+the same way `bridge/ntqq_reader.py` does at runtime, copies it into the client
+stage as `resources/ntqq-reader/ntqq-reader.exe`, and refuses to produce a client
+without it — a package that carries no reader cannot read QQ data.
 
 The suite covers the parts that cannot be checked by inspection:
 

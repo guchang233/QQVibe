@@ -377,17 +377,30 @@ class NapCatPassphrase:
 # The sidecar process and its HTTP contract.
 # ---------------------------------------------------------------------------
 
+#: Where the reader binary is searched for, relative to the project root -- which
+#: is also the packaged client root, because the stage is copied to
+#: ``resources/client``.
+#:
+#: The last entry is where the release staging writes the binary, so a packaged
+#: build resolves the exe exactly the way a source checkout does.  Both the
+#: search order and the staged location are kept here alone on purpose:
+#: ``scripts/stage-real-client.py`` imports this module instead of repeating the
+#: list, so the two cannot drift apart.
+EXE_NAMES = ("ntqq-reader.exe", "ntqq-reader")
+PACKAGED_FOLDER = "resources/ntqq-reader"
+SEARCH_FOLDERS = ("sidecar/ntqq-reader/target/release",
+                  "sidecar/ntqq-reader/target/x86_64-pc-windows-msvc/release",
+                  PACKAGED_FOLDER)
+
+
 def default_exe() -> Path | None:
     override = os.environ.get(SIDECAR_EXE_ENV)
     if override:
         candidate = Path(override)
         return candidate if candidate.is_file() else None
     root = Path(__file__).resolve().parents[1]
-    names = ("ntqq-reader.exe", "ntqq-reader")
-    for folder in ("sidecar/ntqq-reader/target/release",
-                   "sidecar/ntqq-reader/target/x86_64-pc-windows-msvc/release",
-                   "resources/ntqq-reader"):
-        for name in names:
+    for folder in SEARCH_FOLDERS:
+        for name in EXE_NAMES:
             candidate = root / folder / name
             if candidate.is_file():
                 return candidate

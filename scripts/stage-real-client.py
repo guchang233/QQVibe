@@ -1,8 +1,14 @@
-"""Stage reviewed public client inputs into a new runtime stage."""
+"""Stage reviewed public client inputs into a new runtime stage.
+
+Two things are refused outright: anything the allowlists do not name, and a
+client without the ntqq-reader sidecar. The bridge cannot read QQ data without
+that binary, so a package that lacks it is not a release.
+"""
 from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -10,6 +16,24 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# The folder list and the file names come from the bridge module rather than
+# being repeated here: bridge/ntqq_reader.py is what resolves the binary at
+# runtime, so staging cannot drift from the lookup. Only *where the binary is
+# read from* is decided in this file.
+_READER_SPEC = importlib.util.spec_from_file_location(
+    "ntqq_reader", ROOT / "bridge" / "ntqq_reader.py")
+if _READER_SPEC is None or _READER_SPEC.loader is None:
+    raise RuntimeError("the sidecar locator is unavailable")
+reader = importlib.util.module_from_spec(_READER_SPEC)
+_READER_SPEC.loader.exec_module(reader)
+
+#: Where the reader lands inside the client stage. The stage root is copied to
+#: ``resources/client``, and the bridge resolves ``<client>/resources/ntqq-reader``,
+#: so this is the one path that makes a packaged build find its own binary.
+#: The release is Windows-only, hence EXE_NAMES[0].
+SIDECAR_TARGET = Path(reader.PACKAGED_FOLDER) / reader.EXE_NAMES[0]
+
 SCRIPTS = (
     "start-real-client.py", "start-real-client.cmd", "desktop-main.cjs",
     "real-client-shell.cjs", "real-client-preload.cjs", "real-client-recovery.cjs",
@@ -138,7 +162,52 @@ def verify_runtime_stage(output: Path) -> set[str]:
     return set(expected)
 
 
-def public_mappings(source: Path, models: Path) -> list[tuple[Path, Path, Path]]:
+def find_sidecar_exe(source: Path) -> Path | None:
+    """The reader binary under ``source``, searched exactly as the bridge does.
+
+    ``--source-root`` is searched rather than the checkout this script lives in,
+    so staging a synthetic tree never picks up a real local build.
+    """
+    for folder in reader.SEARCH_FOLDERS:
+        for name in reader.EXE_NAMES:
+            candidate = source / folder / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def resolve_sidecar(source: Path, requested: Path | None) -> Path:
+    """The reader binary to package, verified to actually be one.
+
+    Precedence follows the model directory: explicit flag, then environment,
+    then a cargo build output under the source root.
+    """
+    if requested is not None:
+        candidate: Path | None = Path(requested)
+    else:
+        override = os.environ.get(reader.SIDECAR_EXE_ENV)
+        candidate = Path(override) if override else find_sidecar_exe(source)
+    if candidate is None:
+        raise ValueError(
+            "the ntqq-reader sidecar was not found; build it with "
+            "`cargo build --release` under sidecar/ntqq-reader, download the "
+            f"CI artifact and point {reader.SIDECAR_EXE_ENV} at it, or pass "
+            "--sidecar-exe")
+    if not candidate.is_file():
+        raise ValueError(f"sidecar executable is missing: {candidate}")
+    if candidate.stat().st_size < 2:
+        raise ValueError(f"sidecar executable is empty: {candidate}")
+    with candidate.open("rb") as stream:
+        header = stream.read(2)
+    if header != b"MZ":
+        # A cargo target directory also holds .d and .rlib build noise. Staging
+        # the wrong file would only show up as a launch failure in the package.
+        raise ValueError(f"sidecar executable is not a PE image: {candidate}")
+    return candidate.resolve()
+
+
+def public_mappings(source: Path, models: Path,
+                    sidecar: Path) -> list[tuple[Path, Path, Path]]:
     project_files = [Path(name) for name in PUBLIC_FILES]
     project_files += [Path("scripts") / name for name in SCRIPTS]
     project_files += [Path("bridge") / name for name in BRIDGE]
@@ -146,17 +215,22 @@ def public_mappings(source: Path, models: Path) -> list[tuple[Path, Path, Path]]
     mappings = [(source / relative, relative, source) for relative in project_files]
     mappings += [(models / Path(name), Path(".models/laya") / name, models)
                  for name in MODEL_FILES]
+    # The allowlist root for the exe is its own directory: the path was named
+    # explicitly (or found by the bridge's own search), not swept up from a tree.
+    mappings += [(sidecar, SIDECAR_TARGET, sidecar.parent)]
     return mappings
 
 
-def stage_public(source: Path, models: Path, output: Path) -> dict:
+def stage_public(source: Path, models: Path, output: Path,
+                 sidecar: Path | None = None) -> dict:
     source, models, output = source.resolve(), models.resolve(), output.absolute()
     if output == source or source.is_relative_to(output) or output == models or models.is_relative_to(output):
         raise ValueError("staging output must not replace a source directory")
     if (output.parent / "client-files.json").exists():
         raise ValueError("client stage already has a manifest; create a new build directory")
+    executable = resolve_sidecar(source, sidecar)
     runtime_files = verify_runtime_stage(output)
-    mappings = public_mappings(source, models)
+    mappings = public_mappings(source, models, executable)
     names = [relative.as_posix().casefold() for _, relative, _ in mappings]
     if len(names) != len(set(names)) or set(names) & runtime_files:
         raise ValueError("duplicate or colliding client staging path")
@@ -194,7 +268,7 @@ def stage_public(source: Path, models: Path, output: Path) -> dict:
         raise ValueError("client stage has unexpected or missing content")
     verify_directories(output, expected)
     result = {"sourceVersion": version, "sourcePackageSha256": digest(source / "package.json"),
-              "files": rows}
+              "sidecar": SIDECAR_TARGET.as_posix(), "files": rows}
     (output.parent / "client-files.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return result
@@ -204,18 +278,22 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=ROOT)
     parser.add_argument("--models-dir", type=Path)
+    parser.add_argument("--sidecar-exe", type=Path,
+                        help="ntqq-reader binary to package; defaults to the release "
+                             f"build under sidecar/ntqq-reader or ${reader.SIDECAR_EXE_ENV}")
     parser.add_argument("--output", type=Path, required=True,
                         help="new stage created by the clean build driver")
     args = parser.parse_args(argv)
     source = args.source_root.resolve()
     models = (args.models_dir or source / ".models/laya").resolve()
     try:
-        result = stage_public(source, models, args.output)
+        result = stage_public(source, models, args.output, args.sidecar_exe)
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         parser.exit(1, f"Client stage rejected: {error}\n")
     print(json.dumps({"publicFiles": len(result["files"]),
                       "bytes": sum(row["bytes"] for row in result["files"]),
                       "sourceVersion": result["sourceVersion"],
+                      "sidecar": result["sidecar"],
                       "userDataCopied": False, "output": str(args.output.absolute())}, ensure_ascii=True))
 
 
