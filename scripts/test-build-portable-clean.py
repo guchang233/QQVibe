@@ -56,7 +56,6 @@ class CleanPortableBuildTests(unittest.TestCase):
                                                     "real-client-update-extract.py",
                                                     "update-signing.pub")),
             mock.patch.object(stage, "BRIDGE", ("chat_server.py", "conversation_selection.py")),
-            mock.patch.object(stage, "NATIVE_READER", ()),
             mock.patch.object(stage, "LAYA", ()),
             mock.patch.object(stage, "MODEL_FILES", ("model.onnx",)),
             mock.patch.object(stage, "MODEL_PINS", {

@@ -20,7 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from history_browser import browse as browse_history, search as search_history  # noqa: E402
 import ntqq_reader as nrt  # noqa: E402
-from qq_source import GROUP_SUFFIX, QQSource  # noqa: E402
+from backend_contracts import AccountUnavailableError  # noqa: E402
+from qq_source import GROUP_SUFFIX, SHARD_NAME, QQSource  # noqa: E402
 from test_ntqq_reader import FakeSidecar, TempDir  # noqa: E402
 
 SELF_UIN = "10001"
@@ -255,6 +256,41 @@ class QQSourceSmokeTests(unittest.TestCase):
         self.assertEqual(len(texts), 2)
         self.assertEqual({stable for stable, _text in texts},
                          {item["id"] for item in window[:2]})
+
+
+
+class QQSourceReadinessTests(unittest.TestCase):
+    """An unresolved account must fail closed instead of reading partial history."""
+
+    class _MissingBackend:
+        def ensure(self):
+            raise LookupError("no nt_msg.db is open by QQ")
+
+    def setUp(self):
+        self.source = QQSource(local_backend=self._MissingBackend())
+        self.addCleanup(self.source.close)
+
+    def test_reads_report_the_account_before_touching_history(self):
+        calls = (
+            lambda: self.source.sessions(),
+            lambda: self.source.contact(FRIEND_UIN),
+            lambda: self.source.messages(FRIEND_UIN, 5),
+            lambda: self.source.message_windows([FRIEND_UIN], 5),
+            lambda: self.source.history_highwater(FRIEND_UIN),
+            lambda: self.source.history_page(FRIEND_UIN, (5, SHARD_NAME, 5)),
+            lambda: self.source.stats(FRIEND_UIN),
+            lambda: self.source.profile_overview(FRIEND_UIN),
+        )
+        for call in calls:
+            with self.subTest(call=call):
+                with self.assertRaises(AccountUnavailableError):
+                    call()
+
+    def test_identity_and_readiness_fail_closed_too(self):
+        with self.assertRaises(AccountUnavailableError):
+            self.source.identity()
+        with self.assertRaises(AccountUnavailableError):
+            self.source.require_messages_ready()
 
 
 if __name__ == "__main__":

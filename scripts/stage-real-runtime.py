@@ -27,7 +27,7 @@ PYTHON_ROOT = (Path(PYTHON_SOURCE).resolve().parent if PYTHON_SOURCE
 PYTHON_SITE = Path(sysconfig.get_path("purelib")).resolve()
 NODE_MODULES = ROOT / "node_modules"
 PYTHON_ROOT_PACKAGES = (
-    "wechatauto-replica", "cryptography", "zstandard", "psutil", "jieba",
+    "cryptography", "zstandard", "psutil", "jieba",
     "Pillow", "uiautomation", "pywin32", "pyperclip", "colorama",
     "opencv-python", "numpy", "comtypes", "setuptools", "tzdata", "packaging",
 )

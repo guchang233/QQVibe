@@ -42,7 +42,6 @@ from node_analysis import NodeAnalysis
 from profile_signals import keywords_from_counts, summary_from_aggregate
 from profile_state import empty_state as empty_profile_state, traits_from_state
 from result_store import project_result_store
-from wechat_source import WeChatSource
 
 
 class Backend:
@@ -368,7 +367,7 @@ class Backend:
         state = "idle"
         error = None
         account = None
-        if isinstance(self.source, WeChatSource) or self.source.db is not None:
+        if self.source.db is not None:
             try:
                 account, _ = self.source.identity()
                 state = "ready"
@@ -1649,10 +1648,11 @@ class Backend:
                    if type(getattr(messages, "has_more_before", None)) is bool else {})}
 
     def message_windows(self, requested_account, users):
-        if not isinstance(self.source, WeChatSource):
-            ready = getattr(self.source, "require_messages_ready", None)
-            if callable(ready):
-                ready()
+        # A reader that can report readiness must confirm it before windows are built;
+        # fakes without the hook keep working.
+        ready = getattr(self.source, "require_messages_ready", None)
+        if callable(ready):
+            ready()
         windows = self.source.message_windows(users, 80, expected_account=requested_account)
         return {"account": requested_account, "windows": [
             {"user": user, "messages": [

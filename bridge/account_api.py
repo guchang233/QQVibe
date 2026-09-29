@@ -8,8 +8,8 @@ import os
 import uuid
 from pathlib import Path
 
-from account_store import AccountConflict, AccountStore, account_id, _check_root, _regular
-from snapshot_cache import try_forget_account, wait_forget_account
+from account_store import (AccountConflict, AccountStore, account_id, _check_root,
+                           _regular, try_forget_account, wait_forget_account)
 
 
 class AccountAPI:
@@ -63,23 +63,13 @@ class AccountAPI:
                     else:
                         actual, workdir = self.backend.source.identity()
                 if actual != account:
-                    raise AccountConflict("微信账号已变化，请刷新")
+                    raise AccountConflict("QQ 账号已变化，请刷新")
                 self.store.register(actual, workdir, *display)
                 self.registered[account] = display
 
-    def _live_account(self, deleting=False):
-        source = self.backend.source
-        if getattr(source, "dynamic_account", False):
-            selection = source.active_account_locator()
-            if selection is None:
-                if deleting:
-                    from live_source import discovery
-                    if discovery.find_weixin_processes():
-                        raise AccountConflict("暂无法确认当前微信账号，请稍后重试")
-                return None
-            location = getattr(selection, "account_dir", selection)
-            return Path(location).name
-        return str(source.identity()[0])
+    def _live_account(self):
+        """The account the reader currently has open, resolved on every call."""
+        return str(self.backend.source.identity()[0])
 
     def list(self):
         with self.lock, self.backend.source.lock:
@@ -92,7 +82,7 @@ class AccountAPI:
                 raise AccountConflict("账号清理正在进行")
             item = self.store.resolve(identifier)
             account = item["account"]
-            current = self._live_account(deleting=True) == account
+            current = self._live_account() == account
             self.deleting = True
         paused = False
         marked = False
@@ -121,7 +111,7 @@ class AccountAPI:
                     def guard(owned):
                         nonlocal checked_at, checks, observed
                         if checks < 2 or time.monotonic() - checked_at >= 0.5:
-                            observed = self._live_account(deleting=True)
+                            observed = self._live_account()
                             checked_at = time.monotonic()
                             checks += 1
                         if observed == owned:

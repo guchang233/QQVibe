@@ -70,7 +70,7 @@ class PurityTests(unittest.TestCase):
                 found = imports(parsed(name))
                 self.assertFalse(found & {
                     "backend_contracts", "backend_service", "real_backend", "real_http",
-                    "result_store", "node_analysis", "wechat_source", "model_source", "batch_engine",
+                    "result_store", "node_analysis", "qq_source", "model_source", "batch_engine",
                 })
         self.assertNotIn("portrait_contracts", imports(parsed("message_contracts")))
         self.assertNotIn("message_contracts", imports(parsed("portrait_contracts")))

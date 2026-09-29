@@ -33,7 +33,6 @@ def main() -> int:
         return project_result
     run_group("bridge", "test_*.py")
     run_group("scripts", "test-*.py")
-    run_group("native-reader", "test_*.py")
     print("ALL_PYTHON_TESTS_PASSED", flush=True)
     return 0
 

@@ -371,7 +371,7 @@ def make_handler(backend, accounts=None, control_token=None):
     return Handler
 
 
-def main(classifier=None):
+def main():
     from account_api import AccountAPI
     control_token = os.environ.pop(CONTROL_TOKEN_ENV, None)
     backend = Backend(QQSource())

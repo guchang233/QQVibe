@@ -32,6 +32,21 @@ def account_id(account):
     return hashlib.sha256(account.encode("utf-8")).hexdigest()
 
 
+def try_forget_account(workdir):
+    """Release this account's derived data before deletion.
+
+    WeChat ran snapshot writers on a worker pool, so removal had to probe for an
+    in-flight refresh. QQ materializes under `QQSource.lock` synchronously: once the
+    caller holds that lock there is nothing in flight, and the caller owns the files.
+    """
+    return True
+
+
+def wait_forget_account(workdir, timeout=180):
+    """Quiesce this account's writer before deletion; see `try_forget_account`."""
+    return try_forget_account(workdir)
+
+
 def _safe_account(account):
     return (isinstance(account, str) and bool(account) and account not in (".", "..") and
             not any(char in account for char in "/\\:\0") and
@@ -74,13 +89,13 @@ class AccountStore:
     def __init__(self, data_dir, snapshot_root=None, stable_keys_dir=None):
         self.data_dir = Path(os.path.abspath(data_dir))
         self.snapshot_root = Path(os.path.abspath(
-            snapshot_root or Path(tempfile.gettempdir()) / "wechatauto_db"
+            snapshot_root or Path(tempfile.gettempdir()) / "qqvibe_db"
         ))
         self.registry = self.data_dir / "accounts.json"
         if stable_keys_dir is None:
-            configured = os.environ.get("WECHATAUTO_KEYS_DIR")
+            configured = os.environ.get("QQVIBE_KEYS_DIR")
             base = os.environ.get("LOCALAPPDATA") or os.environ.get("USERPROFILE")
-            stable_keys_dir = configured or (Path(base) / "wechatauto_keys" if base else None)
+            stable_keys_dir = configured or (Path(base) / "qqvibe_keys" if base else None)
         self.stable_keys_dir = Path(os.path.abspath(stable_keys_dir)) if stable_keys_dir else None
         self.lock = threading.RLock()
 
@@ -187,7 +202,7 @@ class AccountStore:
             found[item["accountId"]] = {
                 "accountId": item["accountId"], "account": account,
                 "workdir": str(expected),
-                "wechatId": item.get("wechatId") if isinstance(item.get("wechatId"), str) else "",
+                "accountNumber": item.get("accountNumber") if isinstance(item.get("accountNumber"), str) else "",
                 "nickname": item.get("nickname") if isinstance(item.get("nickname"), str) else "",
             }
         return found
@@ -209,8 +224,9 @@ class AccountStore:
         return accounts
 
     @staticmethod
-    def _upstream_wxid(account):
-        return re.sub(r"_\w{4}$", "", account)
+    def _account_number(account):
+        """QQNT accounts are numeric UINs, so the account name stands in directly."""
+        return account
 
     def _discover(self):
         records = self._read_registry()
@@ -227,7 +243,7 @@ class AccountStore:
             records.setdefault(identifier, {
                 "accountId": identifier, "account": account,
                 "workdir": str(self._workdir(account)),
-                "wechatId": self._upstream_wxid(account), "nickname": "",
+                "accountNumber": self._account_number(account), "nickname": "",
             })
         return records
 
@@ -245,7 +261,7 @@ class AccountStore:
         finally:
             temporary.unlink(missing_ok=True)
 
-    def register(self, account, workdir, wechat_id="", nickname=""):
+    def register(self, account, workdir, account_number="", nickname=""):
         with self.lock:
             expected = self._workdir(account)
             provided = Path(os.path.abspath(workdir))
@@ -254,7 +270,7 @@ class AccountStore:
             records = self._discover()
             identifier = account_id(account)
             item = {"accountId": identifier, "account": account, "workdir": str(expected),
-                    "wechatId": wechat_id or self._upstream_wxid(account), "nickname": nickname or ""}
+                    "accountNumber": account_number or self._account_number(account), "nickname": nickname or ""}
             if records.get(identifier) != item:
                 records[identifier] = item
                 self._write_registry(records)
@@ -269,10 +285,10 @@ class AccountStore:
                 result = self.data_dir / (identifier + ".sqlite3")
                 size = result.stat().st_size if _regular(result) else 0
                 size += sum(path.stat().st_size for path in self._cache_files(item["account"]))
-                items.append({"accountId": identifier, "wechatId": item["wechatId"],
+                items.append({"accountId": identifier, "accountNumber": item["accountNumber"],
                               "nickname": item["nickname"], "current": identifier == current_id,
                               "bytes": size})
-            items.sort(key=lambda item: (not item["current"], item["wechatId"], item["accountId"]))
+            items.sort(key=lambda item: (not item["current"], item["accountNumber"], item["accountId"]))
             return {"accounts": items, "currentAccountId": current_id}
 
     def resolve(self, identifier):

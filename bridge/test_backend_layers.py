@@ -19,7 +19,7 @@ import model_source
 import node_analysis
 import real_backend
 import result_store
-import wechat_source
+import qq_source
 from batch_engine import BatchEngine
 from batch_state import BatchStateStore
 from profile_state import empty_state
@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BRIDGE = ROOT / "bridge"
 LAYER_MODULES = ("backend_contracts", "backend_service", "message_results", "message_contracts",
                  "message_input", "portrait_contracts", "api_tasks", "node_analysis",
-                 "result_store", "wechat_source", "qq_source", "ntqq_reader")
+                 "result_store", "qq_source", "ntqq_reader")
 
 
 def parsed(name):
@@ -50,7 +50,7 @@ class LayerBoundaryTests(unittest.TestCase):
         for owner, names in (
             (backend_service, ("Backend",)),
             (result_store, ("ResultStore",)),
-            (wechat_source, ("WeChatSource", "message_id", "avatar_candidates")),
+            (qq_source, ("QQSource", "message_id", "avatar_candidates")),
             (node_analysis, ("NodeAnalysis",)),
             (backend_contracts, ("ForecastRequestError", "AccountChangedError",
                                  "AccountUnavailableError", "MessagesUnavailableError", "ModelSourceUnavailable",
@@ -76,29 +76,29 @@ class LayerBoundaryTests(unittest.TestCase):
 
     def test_repositories_and_adapters_never_import_services_or_facade(self):
         for name in ("backend_contracts", "message_results", "result_store", "batch_state",
-                     "wechat_source", "node_analysis"):
+                     "qq_source", "node_analysis"):
             with self.subTest(module=name):
                 self.assertFalse(imports(parsed(name)) & {"real_backend", "backend_service", "real_http", "batch_engine"})
-        self.assertFalse(imports(parsed("result_store")) & {"wechat_source", "node_analysis", "model_source"})
+        self.assertFalse(imports(parsed("result_store")) & {"qq_source", "node_analysis", "model_source"})
 
     def test_message_results_depends_only_on_contracts_and_profile_signals(self):
         found = imports(parsed("message_results"))
         self.assertTrue(found <= sys.stdlib_module_names | {"__future__", "backend_contracts", "profile_signals"})
         self.assertFalse(found & {"real_backend", "backend_service", "real_http", "batch_engine",
-                                  "result_store", "node_analysis", "wechat_source", "model_source"})
+                                  "result_store", "node_analysis", "qq_source", "model_source"})
 
     def test_message_input_depends_only_on_the_standard_library(self):
         found = imports(parsed("message_input"))
         self.assertTrue(found <= sys.stdlib_module_names | {"__future__"})
         self.assertFalse(found & {"backend_service", "real_backend", "backend_contracts",
-                                  "node_analysis", "wechat_source", "model_source", "batch_engine",
+                                  "node_analysis", "qq_source", "model_source", "batch_engine",
                                   "result_store", "message_contracts", "portrait_contracts"})
 
     def test_api_tasks_depends_only_on_the_standard_library(self):
         found = imports(parsed("api_tasks"))
         self.assertTrue(found <= sys.stdlib_module_names | {"__future__"})
         self.assertFalse(found & {"backend_service", "real_backend", "result_store",
-                                  "node_analysis", "wechat_source", "model_source", "batch_engine"})
+                                  "node_analysis", "qq_source", "model_source", "batch_engine"})
 
     def test_message_results_exposes_only_the_two_pure_validators(self):
         import message_results
@@ -126,7 +126,7 @@ with patch.object(sqlite3, 'connect', side_effect=AssertionError('database on im
      patch.object(subprocess, 'Popen', side_effect=AssertionError('process on import')), \
      patch.object(threading.Thread, 'start', side_effect=AssertionError('thread on import')), \
      patch.object(socket.socket, 'connect', side_effect=AssertionError('network on import')):
-    for name in ('result_store', 'node_analysis', 'wechat_source', 'backend_service', 'real_backend', 'qq_source', 'ntqq_reader', 'message_results', 'message_contracts', 'portrait_contracts', 'api_tasks'):
+    for name in ('result_store', 'node_analysis', 'backend_service', 'real_backend', 'qq_source', 'ntqq_reader', 'message_results', 'message_contracts', 'portrait_contracts', 'api_tasks'):
         importlib.import_module(name)
 print('IMPORTS_HAVE_NO_RUNTIME_SIDE_EFFECTS')
 """
@@ -151,7 +151,7 @@ import importlib, pathlib, sys
 root = pathlib.Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(root))
 import chat_server, real_http, real_backend
-for name in ('backend_contracts', 'backend_service', 'message_results', 'message_contracts', 'message_input', 'portrait_contracts', 'api_tasks', 'result_store', 'node_analysis', 'wechat_source', 'qq_source', 'ntqq_reader'):
+for name in ('backend_contracts', 'backend_service', 'message_results', 'message_contracts', 'message_input', 'portrait_contracts', 'api_tasks', 'result_store', 'node_analysis', 'qq_source', 'ntqq_reader'):
     module = importlib.import_module(name)
     assert pathlib.Path(module.__file__).resolve().parent == root, name
 assert real_http.Backend is real_backend.Backend

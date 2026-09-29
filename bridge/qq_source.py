@@ -8,8 +8,8 @@ part and lives in sidecar/ntqq-reader; the sidecar exposes the result as a
 read-only HTTP SELECT endpoint, and `ntqq_reader` is its client. The passphrase
 comes from NapCat, which already has it.
 
-Same public interface as WeChatSource, so Backend/history_browser consume it
-unchanged. Design notes:
+It keeps the interface the former adapter exposed, so Backend and
+history_browser consume it unchanged. Design notes:
 
 - Group conversations keep the WeChat group marker suffix (`<gid>@chatroom`)
   so the backend's group logic keys on one convention.
@@ -50,8 +50,8 @@ from ntqq_reader import Coordinator, parse_message_body
 GROUP_SUFFIX = "@chatroom"
 SHARD_NAME = "message__message_0.db"
 # Account workdir shared with AccountStore's default snapshot root, so account
-# registration and the "清除账号" flow treat QQ accounts like WeChat ones.
-WORKDIR_ROOT = Path(tempfile.gettempdir()) / "wechatauto_db"
+# registration and the "清除账号" flow address QQ accounts the same way.
+WORKDIR_ROOT = Path(tempfile.gettempdir()) / "qqvibe_db"
 CONTACTS_TTL = 300.0
 HISTORY_PAGE_SIZE = 200
 MAX_FETCH_ROUNDS = 64
@@ -81,7 +81,7 @@ def positive_timestamp(value):
     return (number * 1000 if number < 10_000_000_000 else number) if number > 0 else None
 
 
-def _avatar_candidates(*urls):
+def avatar_candidates(*urls):
     candidates = []
     for url in urls:
         if not isinstance(url, str) or not url or url != url.strip():
@@ -97,14 +97,14 @@ def _avatar_candidates(*urls):
 
 
 def _uin_avatars(uin):
-    return _avatar_candidates(
+    return avatar_candidates(
         f"https://q1.qlogo.cn/g?b=qq&nk={uin}&s=640",
         f"https://q1.qlogo.cn/g?b=qq&nk={uin}&s=100",
     )
 
 
 def _group_avatars(gid):
-    return _avatar_candidates(
+    return avatar_candidates(
         f"https://p.qlogo.cn/gh/{gid}/{gid}/640",
         f"https://p.qlogo.cn/gh/{gid}/{gid}/100",
         f"https://q1.qlogo.cn/g?b=qq&nk={gid}&s=640",
@@ -361,12 +361,9 @@ class _QQDB:
 
 
 class QQSource:
-    def __init__(self, factory=None, classifier=None, media_factory=None,
-                 active_account_locator=None, local_backend=None):
-        # The legacy WeChat parameters are accepted for interface parity and stay
-        # unused: the QQ source classifies message content itself. `local_backend`
-        # is injectable so tests can substitute a fake, but the default is the
-        # real sidecar client.
+    def __init__(self, local_backend=None):
+        # `local_backend` is injectable so tests can substitute a fake; the default
+        # is the real sidecar client.
         self.lock = threading.RLock()
         self.closed = False
         self.db = _QQDB(self)

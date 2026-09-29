@@ -38,21 +38,39 @@ def short_directory_alias(path):
     return alias
 
 
+def is_directory_reparse(path):
+    return (Path(path).is_symlink() or
+            bool(getattr(os.path, 'isjunction', lambda _path: False)(path)))
+
+
 def directory_reparse_alias(target, alias):
     try:
         os.symlink(target, alias, target_is_directory=True)
     except (OSError, NotImplementedError):
-        if os.name != 'nt':
-            raise unittest.SkipTest('directory reparse alias unavailable')
+        pass
+    else:
+        if is_directory_reparse(alias):
+            return
+        # An unprivileged symlink call can report success while creating a plain
+        # directory; reject that here rather than letting the caller's assertions
+        # fail for a reason unrelated to reparse-point handling.
+        if os.path.isdir(alias) and not os.listdir(alias):
+            os.rmdir(alias)
+    if os.name != 'nt':
+        raise unittest.SkipTest('directory reparse alias unavailable')
+    if True:
         environment = os.environ.copy()
         environment['ACCOUNT_TEST_LINK'] = str(alias)
         environment['ACCOUNT_TEST_TARGET'] = str(target)
         dollar = chr(36)
         script = ('New-Item -ItemType Junction -Path ' + dollar + 'env:ACCOUNT_TEST_LINK -Target ' +
                   dollar + 'env:ACCOUNT_TEST_TARGET | Out-Null')
-        result = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
-                                env=environment, capture_output=True, text=True)
-        if result.returncode or not getattr(os.path, 'isjunction', lambda _path: False)(alias):
+        try:
+            result = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
+                                    env=environment, capture_output=True, text=True)
+        except OSError as exc:
+            raise unittest.SkipTest(f'directory junction helper unavailable: {exc}')
+        if result.returncode or not is_directory_reparse(alias):
             raise unittest.SkipTest('directory junction unavailable')
 
 

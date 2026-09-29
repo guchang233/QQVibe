@@ -62,7 +62,6 @@ ALLOWED_APP_IMAGES = {
 }
 DEPENDENCY_IMAGE_ROOTS = (
     ("resources", "client", "runtime", "python", "lib", "site-packages", "win32com"),
-    ("resources", "client", "runtime", "python", "lib", "site-packages", "wechatauto"),
 )
 SDK_CODE_ROOTS = (
     ("resources", "client", "node_modules", "@anthropic-ai", "sdk"),

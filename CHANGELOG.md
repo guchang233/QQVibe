@@ -1,5 +1,17 @@
 # 更新日志
 
+## 未发布
+
+把聊天记录读取层从 wechatauto-replica 换成 `ntdb_unwrap`，产品从微信转向 QQ。
+
+### 变更
+
+- **读取层替换**：新增 `sidecar/ntqq-reader`（Rust）与 `bridge/ntqq_reader.py`，只读解密并查询 QQNT 的 `nt_msg.db`；解密口令从 NapCat 读取。删除 `wechatauto-replica` 依赖及 `wechat_source.py`、`live_source.py`、`cache_source.py`、`snapshot_cache.py`、`wechat_bridge.py`、`native-reader/`。
+- **适配器**：新增 `bridge/qq_source.py`，对 `Backend` 暴露与原适配器相同的接口；`real_backend` 的兼容导出改由它提供。
+- **账号缓存**：缓存目录与密钥目录改名为 `qqvibe_db` / `qqvibe_keys`，环境变量为 `QQVIBE_KEYS_DIR`；账号列表字段 `wechatId` 改为 `accountNumber`。
+- **契约**：`AccountUnavailableError`、`AccountChangedError`、`MessagesUnavailableError` 支持携带具体原因，默认文案改为 QQ。
+- **待完成**：发布流水线尚未包含 `ntqq-reader.exe`，便携包还无法独立运行读取层。
+
 ## [1.2.2](https://github.com/tswawa/WechatVibe/releases/tag/v1.2.2)
 
 本次更新优化了聊天消息的情绪与意图识别，支持 API 批量分析和流式标签显示，并修复 Windows 启动兼容及失败后的后台进程残留问题。

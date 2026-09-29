@@ -180,7 +180,7 @@ let startupAccountRetryTimer = null;
 function accountCheckStatus(message, retry = false) {
   text("accountCheckSummary", message);
   text("accountCheckStatus", message);
-  const ready = message.startsWith("聊天记录就绪") || message === "微信账号已就绪";
+  const ready = message.startsWith("聊天记录就绪") || message === "QQ 账号已就绪";
   byId("accountValidation").hidden = ready;
   byId("accountCheckSummary").dataset.state = ready ? "ready" : retry ? "attention" : "working";
   byId("accountCheckSummary").title = message;
@@ -210,7 +210,7 @@ function unlockStartupUi() {
   byId("appWindow").removeAttribute("inert");
 }
 function completeStartup() {
-  accountCheckStatus(chatState.preloadTotal ? `聊天记录就绪 ${chatState.preloadDone}/${chatState.preloadTotal}` : "微信账号已就绪");
+  accountCheckStatus(chatState.preloadTotal ? `聊天记录就绪 ${chatState.preloadDone}/${chatState.preloadTotal}` : "QQ 账号已就绪");
   if (!startupActive) return;
   startupActive = false;
   startupAttempt++;
@@ -407,7 +407,7 @@ function placeReplyPrediction(scroll = true) {
   else wrap.appendChild(card);
   if (scroll) requestAnimationFrame(() => { if (!card.hidden && card.isConnected) card.scrollIntoView({ block: "nearest" }); });
 }
-function resetAccountView(message = "当前微信账号未就绪", preserveOtherCaches = false) {
+function resetAccountView(message = "当前QQ 账号未就绪", preserveOtherCaches = false) {
   cancelApiInsightWork();
   cancelApiPortraitPoll();
   clearTimeout(startupAccountRetryTimer);
@@ -419,7 +419,7 @@ function resetAccountView(message = "当前微信账号未就绪", preserveOther
   chatState.historyState = null;
   resetHistorySearch();
   if (!startupActive) startupActive = true;
-  showStartup("account", message, { retry: message === "当前微信账号未就绪", continueEmpty: message === "当前微信账号未就绪" });
+  showStartup("account", message, { retry: message === "当前QQ 账号未就绪", continueEmpty: message === "当前QQ 账号未就绪" });
   accountUnavailable = false;
   chatState.sessionRequest++;
   chatState.controller?.abort();
@@ -522,12 +522,12 @@ function contactSnapshotStaleError(error) {
 }
 function handleAccountBoundaryError(error) {
   if (accountChangedError(error)) {
-    resetAccountView("微信账号已变化，正在读取会话…");
+    resetAccountView("QQ 账号已变化，正在读取会话…");
     void loadSessions();
     return true;
   }
   if (accountUnavailableError(error)) {
-    resetAccountView("当前微信账号未就绪");
+    resetAccountView("当前QQ 账号未就绪");
     accountUnavailable = true;
     return true;
   }
@@ -535,7 +535,7 @@ function handleAccountBoundaryError(error) {
 }
 function acceptResponseAccount(account) {
   if (account === undefined || account === chatState.currentAccount) return true;
-  resetAccountView("微信账号已变化，正在读取会话…");
+  resetAccountView("QQ 账号已变化，正在读取会话…");
   void loadSessions();
   return false;
 }
@@ -605,7 +605,7 @@ async function requestReplyPrediction() {
     if (error.name !== "AbortError" && token === replyPredictionRequest && chatState.currentUser === user && chatState.currentAccount === account) {
       if (error.code === "account-changed" || accountChangedError(error) || accountUnavailableError(error)) {
         if (error.code === "account-changed") {
-          resetAccountView("微信账号已变化，正在读取会话…");
+          resetAccountView("QQ 账号已变化，正在读取会话…");
           void loadSessions();
         } else handleAccountBoundaryError(error);
         return;
@@ -945,17 +945,17 @@ async function loadSessions(retryChanged = true) {
   } catch (error) {
     if (request !== chatState.sessionRequest) return;
     if (accountChangedError(error)) {
-      resetAccountView("微信账号已变化，正在读取会话…");
+      resetAccountView("QQ 账号已变化，正在读取会话…");
       if (retryChanged !== false) followup = false;
-      else showStartup("account", "微信账号已变化，请重试", { retry: true });
+      else showStartup("account", "QQ 账号已变化，请重试", { retry: true });
     } else if (accountUnavailableError(error)) {
       const autoRetry = startupActive && !startupAccountRetryUsed;
-      if (!accountUnavailable || chatState.currentAccount !== null || chatState.sessions.size) resetAccountView("当前微信账号未就绪");
+      if (!accountUnavailable || chatState.currentAccount !== null || chatState.sessions.size) resetAccountView("当前QQ 账号未就绪");
       accountUnavailable = true;
-      status(byId("sessionList"), "当前微信账号未就绪", () => { void loadSessions(); });
+      status(byId("sessionList"), "当前QQ 账号未就绪", () => { void loadSessions(); });
       if (autoRetry) {
         startupAccountRetryUsed = true;
-        showStartup("account", "正在重试连接微信…");
+        showStartup("account", "正在重试连接 QQ…");
         const attempt = startupAttempt;
         const pendingRequest = chatState.sessionRequest;
         startupAccountRetryTimer = setTimeout(() => {
@@ -965,7 +965,7 @@ async function loadSessions(retryChanged = true) {
             void loadSessions();
           }
         }, 2500);
-      } else showStartup("account", "当前微信账号未就绪", { retry: true, continueEmpty: true });
+      } else showStartup("account", "当前QQ 账号未就绪", { retry: true, continueEmpty: true });
     } else if (contactSnapshotStaleError(error)) {
       if (chatState.currentAccount !== null || chatState.sessions.size || !startupActive) {
         resetAccountView("联系人资料更新中…", true);
@@ -3956,7 +3956,7 @@ function renderManagedAccounts() {
     const item = element("button", `account-item${account.accountId === selectedManagedAccountId ? " active" : ""}`);
     item.type = "button";
     item.setAttribute("aria-pressed", String(account.accountId === selectedManagedAccountId));
-    item.appendChild(element("span", "account-wechat-id", account.wechatId));
+    item.appendChild(element("span", "account-number", account.accountNumber));
     if (managedAccountIsCurrent(account)) item.appendChild(element("span", "account-current", "正在使用"));
     item.addEventListener("click", () => {
       if (accountDeleteBusy) return;
@@ -3976,7 +3976,7 @@ function renderManagedAccounts() {
         if (clear.disabled) return;
         selectedManagedAccountId = account.accountId;
         pendingDeleteAccountId = account.accountId;
-        text("accountDeleteQuestion", `清除账号 ${account.wechatId} 在本软件中的聊天记录副本、分析与画像、运行缓存？微信原始记录不会删除。${managedAccountIsCurrent(account) ? "若清除时仍为当前账号，软件将退出；下次启动重新初始化。" : "若清除时仍非当前账号，软件继续运行。"}`);
+        text("accountDeleteQuestion", `清除账号 ${account.accountNumber} 在本软件中的聊天记录副本、分析与画像、运行缓存？QQ 原始聊天不会删除。${managedAccountIsCurrent(account) ? "若清除时仍为当前账号，软件将退出；下次启动重新初始化。" : "若清除时仍非当前账号，软件继续运行。"}`);
         text("btnConfirmDeleteAccount", managedAccountIsCurrent(account) ? "清除并退出" : "确认清除");
         byId("accountDeleteConfirm").hidden = false;
         renderManagedAccounts();
@@ -3995,7 +3995,7 @@ async function loadAccounts() {
     if (request !== accountManagerRequest) return;
     if (!Array.isArray(data.accounts) || !data.accounts.every(account => account &&
       typeof account.accountId === "string" && account.accountId &&
-      typeof account.wechatId === "string" && account.wechatId && typeof account.current === "boolean") ||
+      typeof account.accountNumber === "string" && account.accountNumber && typeof account.current === "boolean") ||
       !(data.currentAccountId === null || typeof data.currentAccountId === "string") ||
       new Set(data.accounts.map(account => account.accountId)).size !== data.accounts.length) throw new Error("账号列表无效");
     managedAccounts = data.accounts;
@@ -4064,7 +4064,7 @@ async function loadAnalysisCache() {
   pendingAnalysisCacheClear = null;
   byId("analysisCacheConfirm").hidden = true;
   if (!account) {
-    status(byId("analysisCacheList"), "当前微信账号未就绪");
+    status(byId("analysisCacheList"), "当前QQ 账号未就绪");
     text("analysisCacheStatus", "");
     return;
   }
@@ -4292,7 +4292,7 @@ async function copyDraft() {
       if (focus && focus !== input && typeof focus.focus === "function") focus.focus();
     }
   }
-  toast(copied ? "草稿已复制，未发送到微信" : "复制失败，请手动复制草稿");
+  toast(copied ? "草稿已复制，未发送到 QQ" : "复制失败，请手动复制草稿");
 }
 byId("searchInput").addEventListener("input", renderSessions);
 byId("chatMessages").addEventListener("scroll", event => {
@@ -4791,7 +4791,7 @@ async function startInitialLoad() {
   clearTimeout(startupAccountRetryTimer);
   startupAccountRetryTimer = null;
   startupAccountRetryUsed = false;
-  showStartup("account", "正在连接当前微信账号…");
+  showStartup("account", "正在连接当前QQ 账号…");
   let healthReady = false;
   try {
     const data = await api("/api/health");
@@ -4800,7 +4800,7 @@ async function startInitialLoad() {
     if (data.data?.state === "error") setStripStatus("数据源不可用");
   } catch { }
   if (attempt !== startupAttempt || !startupActive) return;
-  showStartup(healthReady ? "sessions" : "account", healthReady ? "正在读取会话列表…" : "正在确认当前微信账号…");
+  showStartup(healthReady ? "sessions" : "account", healthReady ? "正在读取会话列表…" : "正在确认当前QQ 账号…");
   void loadSessions();
 }
 byId("startupRetry").addEventListener("click", retryStartup);
